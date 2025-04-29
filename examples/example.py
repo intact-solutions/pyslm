@@ -9,7 +9,7 @@ from pyslm import hatching as hatching
 
 # Imports the part and sets the geometry to  an STL file (frameGuide.stl)
 solidPart = pyslm.Part('myFrameGuide')
-solidPart.setGeometry('../models/frameGuide.stl')
+solidPart.setGeometry('C:/Users/kumar/source/Darpa Generative AM/pyslm/models/frameGuide.stl')
 
 """
 Transform the part:
@@ -58,7 +58,10 @@ The order of scanning for the hatch region can be displayed by setting the param
 Arrows can be enables by setting the parameter plotArrows to True
 """
 
-pyslm.visualise.plot(layer, plot3D=False, plotOrderLine=True, plotArrows=False)
+import matplotlib.pyplot as plt
+
+pyslm.visualise.plot(layer, plot3D=False, plotOrderLine=False, plotArrows=False)
+plt.show()
 
 """
 Before exporting or analysing the scan vectors, a model and build style need to be created and assigned to the 

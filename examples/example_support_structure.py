@@ -27,7 +27,7 @@ OVERHANG_ANGLE = 55 # deg - Overhang angle
 Set the Geometry for the Example using a complicated topology optimised bracket geometry
 """
 myPart = Part('myPart')
-myPart.setGeometry("../models/bracket.stl", fixGeometry=True)
+myPart.setGeometry('C:/Users/kumar/source/Darpa Generative AM/pyslm/models/inversePyramid.stl', fixGeometry=True)
 #myPart.scaleFactor = 4.0
 myPart.rotation = [62.0, 50.0, -0.0] #[62.0, 50.0, -40.0] #[10, 70, 30] #[62.0, 50.0, -40.0]  #[-70.0, 50.0, -30.0] #[62.0, 50.0, -40.0]
 #myPart.rotation = [76,35,-13] #[-25,0,5] #[76,35,-13]#[62,50,-40.0]

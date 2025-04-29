@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 # Imports the part and sets the geometry to  an STL file (frameGuide.stl)
 solidPart = pyslm.Part('myFrameGuide')
-solidPart.setGeometry('../models/frameGuide.stl')
+solidPart.setGeometry('C:/Users/kumar/source/Darpa Generative AM/pyslm/models/frameGuide.stl')
 
 """
 Transform the part:
@@ -78,6 +78,7 @@ fig, ax = plt.subplots()
 ax.axis('equal')
 
 plt.scatter(exposurePoints[:,0], exposurePoints[:,1], marker='o', linestyle='None')
+plt.show()
 
 # Plot the exposure points
 pyslm.visualise.plot(layer, plot3D=False, handle=(fig,ax))

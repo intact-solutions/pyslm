@@ -51,7 +51,7 @@ def main():
 
     # Imports the part and sets the geometry to  an STL file (frameGuide.stl)
     solidPart = pyslm.Part('inversePyramid')
-    solidPart.setGeometry('../models/inversePyramid.stl')
+    solidPart.setGeometry('C:/Users/kumar/source/Darpa Generative AM/pyslm/models/inversePyramid.stl')
 
     solidPart.origin[0] = 5.0
     solidPart.origin[1] = 2.5
