@@ -23,7 +23,7 @@ def main():
     
     # Define paths and check existence
     base_path = r'C:\Users\kumar\source\Darpa Generative AM\process_zones\tests\block\rotated\results'
-    normal_stl = os.path.join(base_path, 'boundary_zone.stl')
+    normal_stl = os.path.join(base_path, 'bulk_zone.stl')
     overhang_stl = os.path.join(base_path, 'overhang_zone.stl')
     
     # Check if files exist
@@ -68,12 +68,33 @@ def main():
     normal_layer = normal_hatcher.hatch(normal_slice)
     overhang_layer = overhang_hatcher.hatch(overhang_slice)
     
-    # Plot each layer using pyslm's built-in visualization
-    if normal_layer:
-        pyslm.visualise.plot(normal_layer, plot3D=False, plotOrderLine=True, plotArrows=False)
-    if overhang_layer:
-        pyslm.visualise.plot(overhang_layer, plot3D=False, plotOrderLine=True, plotArrows=False)
+    # Create a simple plot
+    fig, ax = plt.subplots()
     
+    # Plot all scan paths in black
+    if normal_layer:
+        for layerGeom in normal_layer.geometry:
+            coords = layerGeom.coords
+            if len(coords) > 0:
+                if isinstance(layerGeom, pyslm.geometry.HatchGeometry):
+                    coords = coords.reshape(-1, 2, 2)
+                    for line in coords:
+                        ax.plot(line[:, 0], line[:, 1], 'k-', linewidth=0.5)
+                else:
+                    ax.plot(coords[:, 0], coords[:, 1], 'k-', linewidth=0.5)
+                    
+    if overhang_layer:
+        for layerGeom in overhang_layer.geometry:
+            coords = layerGeom.coords
+            if len(coords) > 0:
+                if isinstance(layerGeom, pyslm.geometry.HatchGeometry):
+                    coords = coords.reshape(-1, 2, 2)
+                    for line in coords:
+                        ax.plot(line[:, 0], line[:, 1], 'k-', linewidth=0.5)
+                else:
+                    ax.plot(coords[:, 0], coords[:, 1], 'k-', linewidth=0.5)
+    
+    ax.set_aspect('equal')
     plt.show()
     
     # Print analysis information
