@@ -88,7 +88,7 @@ def main():
         
         boundary_hatcher = hatching.Hatcher()
         boundary_hatcher.hatchAngle = 90
-        boundary_hatcher.volumeOffsetHatch = 0.0
+        boundary_hatcher.volumeOffsetHatch = 0.06
         boundary_hatcher.spotCompensation = 0.04
         boundary_hatcher.numInnerContours = 0
         boundary_hatcher.numOuterContours = 2
