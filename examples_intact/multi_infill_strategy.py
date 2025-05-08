@@ -44,12 +44,17 @@ def main():
             raise FileNotFoundError(f"Normal region STL file not found: {normal_stl}")
         normal_part = pyslm.Part('normal_regions')
         normal_part.setGeometry(normal_stl)
-        logging.info(f"Geometry information <normal_regions> - [{normal_stl}]")
-        
-        normal_hatcher = hatching.Hatcher()
+        logging.info(f"Geometry information <normal_regions> - [{normal_stl}]")     
+
+        # Create a StripeHatcher object for performing any hatching operations
+        normal_hatcher = hatching.IslandHatcher()
+        normal_hatcher.islandWidth = .5
+        normal_hatcher.islandOverlap = 0.01
+
+        # Set the base hatching parameters which are generated within Hatcher
         normal_hatcher.hatchAngle = 10
-        normal_hatcher.volumeOffsetHatch = -0.1
-        normal_hatcher.spotCompensation = 0.00
+        normal_hatcher.volumeOffsetHatch = -0.05
+        normal_hatcher.spotCompensation = 0.0
         normal_hatcher.numInnerContours = 0
         normal_hatcher.numOuterContours = 0
         normal_hatcher.hatchSortMethod = hatching.AlternateSort()
@@ -68,7 +73,7 @@ def main():
         
         overhang_hatcher = hatching.Hatcher()
         overhang_hatcher.hatchAngle = 45
-        overhang_hatcher.volumeOffsetHatch = -0.1
+        overhang_hatcher.volumeOffsetHatch = -0.05
         overhang_hatcher.spotCompensation = 0.00
         overhang_hatcher.numInnerContours = 0
         overhang_hatcher.numOuterContours = 0
