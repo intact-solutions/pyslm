@@ -27,7 +27,7 @@ def main():
     process_boundary = True  # Control boundary geometry processing
     
     # Define paths and check existence
-    base_path = r'C:\Users\kumar\source\Darpa Generative AM\process_zones\tests\block\rotated\results'
+    base_path = r'C:\Users\kumar\source_local\process_zones\tests\block\rotated\results'
     
     # Initialize variables
     normal_layer = None
@@ -35,7 +35,7 @@ def main():
     boundary_layer = None
 
     #layer height
-    layer_height = 2.0
+    layer_height = 2.75
     
     # Process normal/bulk geometry
     if process_bulk:
