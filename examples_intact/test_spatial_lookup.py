@@ -7,7 +7,10 @@ if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
 import numpy as np
-import pyslm
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+import pyslm as slm
+import pyslm.visualise as slm_visualise
 from pyslm import hatching as hatching
 from pyslm.analysis.island_utils import (
     IslandIndex,
@@ -18,7 +21,7 @@ from pyslm.analysis.island_utils import (
 
 def main():
     # Build the same simple part/slice used in other examples
-    solidPart = pyslm.Part("inversePyramid")
+    solidPart = slm.Part("inversePyramid")
     solidPart.setGeometry("models/frameGuide.stl")
     solidPart.dropToPlatform()
 
@@ -86,6 +89,53 @@ def main():
 
     neighbor_ids = [posid(g) for g in neighbors[:5]]
     print(f"Neighbors within R={neighbor_radius:.2f} mm: count={len(neighbors)} sample={neighbor_ids}")
+
+    # Visualization (similar to test_island_grouping.py)
+    fig, ax = plt.subplots()
+    ax.axis('equal')
+
+    # Plot slice boundary for context
+    try:
+        slm_visualise.plotPolygon(geomSlice, handle=(fig, ax), lineColor='k', lineWidth=0.6)
+    except Exception:
+        pass
+
+    # Prepare sets for quick membership checks
+    neighbor_set = set(neighbors)
+
+    # Draw island outlines color-coded by sequence and annotate index (small grey font)
+    cmap = mpl.colormaps.get_cmap('coolwarm')
+    num_islands = len(islands)
+    owner_color = '#66c2a5cc'   # light teal with alpha
+    neigh_color = '#ffcc80cc'   # light orange with alpha
+
+    for idx, gi in enumerate(islands, start=1):
+        poly = getattr(gi, 'boundaryPoly', None)
+        if poly is None:
+            continue
+        # Outline color by sequence
+        t = 0.5 if num_islands <= 1 else (idx - 1) / (num_islands - 1)
+        line_color = cmap(t)
+
+        x, y = poly.exterior.xy
+        # Fill owner and neighbors with light color
+        if gi is owner:
+            slm_visualise.plotPolygon([np.vstack([x, y]).T], handle=(fig, ax), plotFilled=True, lineColor=line_color, fillColor=owner_color, lineWidth=1.2)
+        elif gi in neighbor_set:
+            slm_visualise.plotPolygon([np.vstack([x, y]).T], handle=(fig, ax), plotFilled=True, lineColor=line_color, fillColor=neigh_color, lineWidth=1.0)
+        else:
+            slm_visualise.plotPolygon([np.vstack([x, y]).T], handle=(fig, ax), lineColor=line_color, lineWidth=0.9)
+
+        # Small sequence label at centroid
+        cx, cy = poly.centroid.coords[0]
+        ax.text(cx, cy, str(idx), color='#666666', fontsize=4, ha='center', va='center')
+
+    # Mark the query point
+    ox, oy = owner_point
+    ax.plot([ox], [oy], marker='o', markersize=3, color='black')
+
+    plt.title('Owner Island and Neighbors (no scan paths)')
+    plt.show()
 
 
 if __name__ == "__main__":
