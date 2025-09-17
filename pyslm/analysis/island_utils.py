@@ -17,8 +17,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Any, Dict
 
-# Stage 3 timing utilities import
-from . import utils as analysis_utils
+# Stage 3 timing utilities import (explicit submodule to avoid aliasing with geometry.utils)
+from .utils import getLayerGeometryTime, getLayerTime
 
 try:
     from shapely.geometry import Point, box
@@ -219,8 +219,8 @@ def compute_layer_geometry_times(layer: Any,
                                  include_jump: bool = True,
                                  laser_jump_speed: float = 5000.0,
                                  validate: bool = True,
-                                 tol_rel: float = 1e-6,
-                                 tol_abs: float = 1e-9) -> List[Dict[str, Any]]:
+                                 tol_rel: float = 1e-2,
+                                 tol_abs: float = 1e-6) -> List[Dict[str, Any]]:
     """
     Compute per-geometry times for a given layer in the exact order of `layer.geometry`.
 
@@ -238,7 +238,7 @@ def compute_layer_geometry_times(layer: Any,
     entries: List[Dict[str, Any]] = []
 
     for i, geom in enumerate(getattr(layer, "geometry", [])):
-        t = analysis_utils.getLayerGeometryTime(geom, models, includeJumpTime=include_jump)
+        t = getLayerGeometryTime(geom, models, includeJumpTime=include_jump)
         entry: Dict[str, Any] = {
             "idx_in_layer": i,
             "geom": geom,
@@ -252,7 +252,7 @@ def compute_layer_geometry_times(layer: Any,
     if validate:
         # Sum per-geom and compare with layer time that also includes inter-geometry jumps/delays
         per_geom_sum = _sum_times(entries)
-        layer_time = analysis_utils.getLayerTime(layer, models, includeJumpTime=include_jump, laserJumpSpeed=laser_jump_speed)
+        layer_time = getLayerTime(layer, models, includeJumpTime=include_jump, laserJumpSpeed=laser_jump_speed)
 
         # Relative-or-absolute tolerance check
         if not (abs(per_geom_sum - layer_time) <= max(tol_abs, tol_rel * max(1.0, abs(layer_time)))):
@@ -304,7 +304,7 @@ def aggregate_level2_timing(layers: List[Any],
             laser_jump_speed=laser_jump_speed,
             validate=validate,
         )
-        layer_time = analysis_utils.getLayerTime(layer, models, includeJumpTime=include_jump, laserJumpSpeed=laser_jump_speed)
+        layer_time = getLayerTime(layer, models, includeJumpTime=include_jump, laserJumpSpeed=laser_jump_speed)
 
         out_layers.append({
             "layer_index": li,

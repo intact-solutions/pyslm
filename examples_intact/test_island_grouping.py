@@ -20,6 +20,8 @@ from shapely.geometry import MultiPolygon
 import pyslm
 import pyslm.visualise
 from pyslm import hatching as hatching
+from pyslm.analysis import island_utils as iu
+from pyslm.analysis.utils import getLayerTime
 
 import inspect
 from pyslm.hatching.islandHatcher import IslandHatcher
@@ -133,6 +135,45 @@ startTime = time.time()
 print('Hatching Started')
 layer = myHatcher.hatch(geomSlice)
 print('Completed Hatching')
+
+"""
+Stage 3 timing validation
+Assign model/build style IDs to geometry, construct a simple Model/BuildStyle,
+then compute per-geometry times and a Level 2 aggregation (target layer only).
+"""
+
+# Assign model/buildstyle ids to each geometry
+for g in getattr(layer, 'geometry', []):
+    g.mid = 1
+    g.bid = 1
+
+# Minimal BuildStyle/Model for timing
+bstyle = pyslm.geometry.BuildStyle()
+bstyle.bid = 1
+bstyle.laserSpeed = 200.0  # [mm/s] continuous mode
+bstyle.laserPower = 200.0  # [W]
+bstyle.jumpSpeed = 5000.0  # [mm/s]
+
+model = pyslm.geometry.Model()
+model.mid = 1
+model.buildStyles.append(bstyle)
+
+# Compute per-geometry times (includes inter/intra jumps when include_jump=True)
+entries = iu.compute_layer_geometry_times(layer, [model], include_jump=True)
+print(f"Per-geometry entries: {len(entries)}; first 5:")
+for e in entries[:5]:
+    print(f"  idx={e['idx_in_layer']}, kind={e['kind']}, subType={e.get('subType','')}, time={e['time']:.6f}s")
+
+island_entries = iu.layer_entries_to_island_subset(entries)
+print(f"Island entries: {len(island_entries)}")
+
+layer_time_util = getLayerTime(layer, [model], includeJumpTime=True)
+entries_sum = sum(e['time'] for e in entries)
+print(f"Layer time (utils): {layer_time_util:.6f}s; sum(per-geom): {entries_sum:.6f}s")
+
+# Level 2 aggregation over just this target layer (no layers below provided here)
+level2 = iu.aggregate_level2_timing([layer], [model], target_layer_index=0, include_layers_below=0, include_jump=True)
+print(f"Level 2 total_time: {level2['total_time']:.6f}s; layer0: {level2['layers'][0]['layer_time']:.6f}s")
 
 # Only show island outlines and their sequence (no scan paths)
 fig, ax = plt.subplots()
