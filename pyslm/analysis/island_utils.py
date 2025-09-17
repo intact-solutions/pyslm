@@ -15,7 +15,10 @@ If boundaryPoly is missing on a geometry, that geometry is skipped with a warnin
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Any
+from typing import List, Optional, Tuple, Any, Dict
+
+# Stage 3 timing utilities import
+from . import utils as analysis_utils
 
 try:
     from shapely.geometry import Point, box
@@ -187,3 +190,130 @@ def get_island_geometries(layer: Any) -> List[Any]:
 def build_island_index(layer: Any, neighbor_radius: float) -> IslandIndex:
     """Factory to construct an IslandIndex for a given layer."""
     return IslandIndex(layer, neighbor_radius)
+
+
+# ---------------------------------------------------------------------------
+# Stage 3: Timing & Level 2 aggregation utilities
+# ---------------------------------------------------------------------------
+
+def _sum_times(entries: List[Dict[str, Any]]) -> float:
+    """Sum the time field of per-geometry entries with float safety."""
+    return float(sum(e.get("time", 0.0) for e in entries))
+
+
+def _kind_of_geom(geom: Any) -> str:
+    """Return a simple kind label for a LayerGeometry instance."""
+    # Avoid direct imports here to keep a single import surface at file top
+    name = type(geom).__name__.lower()
+    if "hatch" in name:
+        return "hatch"
+    if "contour" in name:
+        return "contour"
+    if "points" in name:
+        return "points"
+    return name
+
+
+def compute_layer_geometry_times(layer: Any,
+                                 models: List[Any],
+                                 include_jump: bool = True,
+                                 laser_jump_speed: float = 5000.0,
+                                 validate: bool = True,
+                                 tol_rel: float = 1e-6,
+                                 tol_abs: float = 1e-9) -> List[Dict[str, Any]]:
+    """
+    Compute per-geometry times for a given layer in the exact order of `layer.geometry`.
+
+    Returns a list of entries with fields:
+    - idx_in_layer: index into layer.geometry
+    - geom: the LayerGeometry
+    - kind: "hatch" | "contour" | "points" (best-effort)
+    - subType: attribute from geometry if present (e.g., "island"), else ""
+    - islandId: attribute from geometry if present, else None
+    - time: timing in seconds (includes jump time if include_jump=True)
+
+    When `validate` is True, asserts that the sum of per-geometry times matches
+    `analysis_utils.getLayerTime(layer, models, includeJumpTime=include_jump)` within tolerances.
+    """
+    entries: List[Dict[str, Any]] = []
+
+    for i, geom in enumerate(getattr(layer, "geometry", [])):
+        t = analysis_utils.getLayerGeometryTime(geom, models, includeJumpTime=include_jump)
+        entry: Dict[str, Any] = {
+            "idx_in_layer": i,
+            "geom": geom,
+            "kind": _kind_of_geom(geom),
+            "subType": getattr(geom, "subType", ""),
+            "islandId": getattr(geom, "islandId", None),
+            "time": float(t),
+        }
+        entries.append(entry)
+
+    if validate:
+        # Sum per-geom and compare with layer time that also includes inter-geometry jumps/delays
+        per_geom_sum = _sum_times(entries)
+        layer_time = analysis_utils.getLayerTime(layer, models, includeJumpTime=include_jump, laserJumpSpeed=laser_jump_speed)
+
+        # Relative-or-absolute tolerance check
+        if not (abs(per_geom_sum - layer_time) <= max(tol_abs, tol_rel * max(1.0, abs(layer_time)))):
+            # Soft assertion: raise a clear error with diagnostics
+            raise AssertionError(
+                f"Per-geometry time sum ({per_geom_sum:.9f}s) does not match layer time "
+                f"({layer_time:.9f}s). include_jump={include_jump}, laser_jump_speed={laser_jump_speed}."
+            )
+
+    return entries
+
+
+def layer_entries_to_island_subset(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Filter entries to only those with subType == 'island'."""
+    return [e for e in entries if e.get("subType", "") == "island"]
+
+
+def aggregate_level2_timing(layers: List[Any],
+                            models: List[Any],
+                            target_layer_index: int,
+                            include_layers_below: int = 1,
+                            include_jump: bool = True,
+                            laser_jump_speed: float = 5000.0,
+                            validate: bool = True) -> Dict[str, Any]:
+    """
+    Aggregate Stage 3 Level 2 timing for the target layer and N layers below.
+
+    Returns a dict:
+    - layers: list of { layer_index, entries, layer_time }
+    - total_time: sum of layer_time across included layers
+
+    Validation ensures that each layer's per-geometry sum matches `getLayerTime` within tolerance.
+    """
+    if target_layer_index < 0 or target_layer_index >= len(layers):
+        raise IndexError("target_layer_index out of range")
+
+    start = max(0, target_layer_index - include_layers_below)
+    end = target_layer_index  # inclusive target only; include below means prior layers
+
+    out_layers: List[Dict[str, Any]] = []
+    total_time = 0.0
+
+    for li in range(start, end + 1):
+        layer = layers[li]
+        entries = compute_layer_geometry_times(
+            layer,
+            models,
+            include_jump=include_jump,
+            laser_jump_speed=laser_jump_speed,
+            validate=validate,
+        )
+        layer_time = analysis_utils.getLayerTime(layer, models, includeJumpTime=include_jump, laserJumpSpeed=laser_jump_speed)
+
+        out_layers.append({
+            "layer_index": li,
+            "entries": entries,
+            "layer_time": float(layer_time),
+        })
+        total_time += float(layer_time)
+
+    return {
+        "layers": out_layers,
+        "total_time": float(total_time),
+    }
