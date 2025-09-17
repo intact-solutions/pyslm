@@ -122,3 +122,5 @@ The order of scanning for the hatch region can be displayed by setting the param
 Arrows can be enables by setting the parameter plotArrows to True
 """
 pyslm.visualise.plot(layer, plot3D=False, plotOrderLine=True, plotArrows=False)
+import matplotlib.pyplot as plt
+plt.show()

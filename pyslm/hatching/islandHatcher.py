@@ -159,6 +159,8 @@ class IslandHatcher(Hatcher):
         self._islandWidth = 5.0
         self._islandOverlap = 0.1
         self._islandOffset = 0.5
+        # Opt-in: when True, emit one HatchGeometry per island (default False preserves legacy behavior)
+        self._groupIslands = False
 
     def __str__(self):
         return 'IslandHatcher'
@@ -192,6 +194,15 @@ class IslandHatcher(Hatcher):
     @islandOffset.setter
     def islandOffset(self, offset: float):
         self._islandOffset = offset
+
+    @property
+    def groupIslands(self) -> bool:
+        """If True, hatch() outputs one HatchGeometry per island (with metadata)."""
+        return self._groupIslands
+
+    @groupIslands.setter
+    def groupIslands(self, value: bool):
+        self._groupIslands = value
 
     def clipIslands(self, paths, pathSubjects):
         """
@@ -349,6 +360,8 @@ class IslandHatcher(Hatcher):
         # Structure for storing the hatch scan vectors
         clippedCoords = []
         unclippedCoords = []
+        # Per-island accumulation (used when groupIslands=True)
+        island_entries = []
 
         # Generate the hatches for all the islands
         idx = 0
@@ -365,6 +378,14 @@ class IslandHatcher(Hatcher):
                     clippedCoords.append(coords)
                 else:
                     unclippedCoords.append(coords)
+
+            # Track per-island entry for optional grouped output
+            island_entries.append({
+                'island': island,
+                'coords': coords,
+                'requiresClipping': island.requiresClipping(),
+                'isIntersecting': island.isIntersecting()
+            })
 
             # Update the index by incremented by the number of hatches
             # ISSUE - the max coordinate id should be used to update this but it adds additional computiatonal complexity
@@ -384,37 +405,81 @@ class IslandHatcher(Hatcher):
         else:
             clippedPaths = np.array([]).reshape(-1,2,3)
 
-        # Merge hatches from both groups together
-        hatches = np.vstack([clippedPaths, unclippedCoords])
-        clippedLines = self.clipperToHatchArray(hatches)
+        if not self._groupIslands:
+            # Legacy behavior: merge all islands into a single HatchGeometry
+            hatches = np.vstack([clippedPaths, unclippedCoords])
+            clippedLines = self.clipperToHatchArray(hatches)
 
-        # Merge the lines together
-        if len(clippedLines) > 0:
+            # Merge the lines together
+            if len(clippedLines) > 0:
 
-            # Extract only x-y coordinates and sort based on the pseudo-order stored in the z component.
-            clippedLines = clippedLines[:, :, :3]
-            id = np.argsort(clippedLines[:, 0, 2])
+                # Extract only x-y coordinates and sort based on the pseudo-order stored in the z component.
+                clippedLines = clippedLines[:, :, :3]
+                id = np.argsort(clippedLines[:, 0, 2])
 
-            clippedLines = clippedLines[id, :, :]
-            scanVectors.append(clippedLines)
+                clippedLines = clippedLines[id, :, :]
+                scanVectors.append(clippedLines)
 
-        if len(clippedLines) > 0:
-            # Scan vectors have been created for the hatched region
+            if len(clippedLines) > 0:
+                # Scan vectors have been created for the hatched region
 
-            # Construct a HatchGeometry containing the list of points
-            hatchGeom = HatchGeometry()
+                # Construct a HatchGeometry containing the list of points
+                hatchGeom = HatchGeometry()
 
-            # Only copy the (x,y) points from the coordinate array.
-            hatchVectors = np.vstack(scanVectors)
-            hatchVectors  = hatchVectors[:, :, :2].reshape(-1, 2)
+                # Only copy the (x,y) points from the coordinate array.
+                hatchVectors = np.vstack(scanVectors)
+                hatchVectors  = hatchVectors[:, :, :2].reshape(-1, 2)
 
-            # Note the does not require positional sorting
-            if self.hatchSortMethod:
-                hatchVectors = self.hatchSortMethod.sort(hatchVectors)
+                # Note the does not require positional sorting
+                if self.hatchSortMethod:
+                    hatchVectors = self.hatchSortMethod.sort(hatchVectors)
 
-            hatchGeom.coords = hatchVectors
+                hatchGeom.coords = hatchVectors
 
-            layer.geometry.append(hatchGeom)
+                layer.geometry.append(hatchGeom)
+        else:
+            # New behavior: emit per-island HatchGeometry entries with metadata
+            for entry in island_entries:
+                if not entry['isIntersecting']:
+                    continue  # skip islands that don't intersect
+
+                coords = entry['coords']
+                if entry['requiresClipping']:
+                    per_paths = self.clipLines(curBoundary, coords.reshape(-1, 2, 3))
+                    if per_paths is None or len(per_paths) == 0:
+                        continue
+                    per_lines = self.clipperToHatchArray(per_paths)
+                else:
+                    per_lines = self.clipperToHatchArray(coords.reshape(-1, 2, 3))
+
+                if len(per_lines) == 0:
+                    continue
+
+                # Sort by pseudo-order stored in z component
+                per_lines = per_lines[:, :, :3]
+                order_ids = np.argsort(per_lines[:, 0, 2])
+                per_lines = per_lines[order_ids, :, :]
+
+                hatchVectors = per_lines[:, :, :2].reshape(-1, 2)
+                if self.hatchSortMethod:
+                    hatchVectors = self.hatchSortMethod.sort(hatchVectors)
+
+                hatchGeom = HatchGeometry()
+                hatchGeom.coords = hatchVectors
+
+                # Attach metadata (best-effort; dynamic attributes)
+                isl = entry['island']
+                try:
+                    poly = isl.boundary()
+                    hatchGeom.subType = "island"
+                    hatchGeom.islandId = isl.id
+                    hatchGeom.posId = isl.posId
+                    hatchGeom.boundaryPoly = poly
+                    hatchGeom.bbox = poly.bounds
+                except Exception:
+                    pass
+
+                layer.geometry.append(hatchGeom)
 
         return layer
 
