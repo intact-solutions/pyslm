@@ -13,6 +13,7 @@ if str(_repo_root) not in sys.path:
 
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 
 from shapely.geometry import MultiPolygon
 
@@ -62,10 +63,10 @@ myHatcher.hatchSortMethod = hatching.AlternateSort()
 geomSlice = solidPart.getVectorSlice(z)
 
 """
-Set to True to show the general process for how IslandHatcher works. 
-Note: the slowest part is plotting all the polygon islands following the testing
+Diagnostic: Set to True to show the general process for how IslandHatcher works. 
+Note: disabled by default to keep the example focused on island outlines + sequence only.
 """
-if True:
+if False:
     # Generates a set of square islands which is guaranteed to cover the entire area of the boundaries.
     # The global orientation of the angle is provided as the second argument
     islands = myHatcher.generateIslands(geomSlice, 30)
@@ -129,42 +130,43 @@ if True:
 
 startTime = time.time()
 
-# Perform the complete hatching operation
 print('Hatching Started')
-
 layer = myHatcher.hatch(geomSlice)
 print('Completed Hatching')
 
-if getattr(myHatcher, 'groupIslands', False):
-    # Filter per-island HatchGeometry entries by checking dynamic metadata
-    island_geoms = [g for g in layer.geometry if getattr(g, 'subType', '') == 'island']
-    print(f"Per-island grouping enabled. Islands emitted: {len(island_geoms)}")
-    if island_geoms:
-        g0 = island_geoms[0]
-        print("Example island metadata:")
-        print(f"  islandId: {getattr(g0, 'islandId', None)}  posId: {getattr(g0, 'posId', None)}  bbox: {getattr(g0, 'bbox', None)}")
+# Only show island outlines and their sequence (no scan paths)
+fig, ax = plt.subplots()
+ax.axis('equal')
 
-    # Overlay island boundaries for visual verification (colored by posId parity)
-    try:
-        fig2, ax2 = pyslm.visualise.plot(layer, plot3D=False, plotOrderLine=True, plotArrows=False)
-        for gi in island_geoms:
-            poly = getattr(gi, 'boundaryPoly', None)
-            if poly is None:
-                continue
-            x, y = poly.exterior.xy
-            # Simple color scheme based on posId parity if available
-            pos = getattr(gi, 'posId', (0, 0))
-            color = 'tab:blue' if (pos[0] + pos[1]) % 2 == 0 else 'tab:orange'
-            pyslm.visualise.plotPolygon([np.vstack([x, y]).T], handle=(fig2, ax2), lineColor=color)
-    except Exception as ex:
-        print(f"Island boundary overlay skipped: {ex}")
+# Plot slice boundary for context
+try:
+    pyslm.visualise.plotPolygon(geomSlice, handle=(fig, ax), lineColor='k', lineWidth=0.6)
+except Exception:
+    pass
 
-"""
-Plot the layer geometries using matplotlib
-The order of scanning for the hatch region can be displayed by setting the parameter (plotOrderLine=True)
-Arrows can be enables by setting the parameter plotArrows to True
-"""
-pyslm.visualise.plot(layer, plot3D=False, plotOrderLine=True, plotArrows=False)
-import matplotlib.pyplot as plt
+island_geoms = [g for g in layer.geometry if getattr(g, 'subType', '') == 'island']
+print(f"Per-island grouping enabled. Islands emitted: {len(island_geoms)}")
+
+# Draw island boundaries color-coded by sequence (blue->red) and annotate sequence number (smaller font, no circle)
+centroids = []
+num_islands = len(island_geoms)
+from matplotlib import cm
+cmap = cm.get_cmap('coolwarm')  # blue -> red
+for idx, gi in enumerate(island_geoms, start=1):
+    poly = getattr(gi, 'boundaryPoly', None)
+    if poly is None:
+        continue
+    # Normalize color across sequence
+    t = 0.5 if num_islands <= 1 else (idx - 1) / (num_islands - 1)
+    color = cmap(t)
+
+    x, y = poly.exterior.xy
+    pyslm.visualise.plotPolygon([np.vstack([x, y]).T], handle=(fig, ax), lineColor=color, lineWidth=1.2)
+    cx, cy = poly.centroid.coords[0]
+    centroids.append((cx, cy))
+    # 50% smaller font than before (was 8 -> now 4), grey font, no circle bbox
+    ax.text(cx, cy, str(idx), color='#666666', fontsize=4, ha='center', va='center')
+
+plt.title('Islands and Scan Sequence (no paths)')
 plt.show()
 
