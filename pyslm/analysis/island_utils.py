@@ -317,3 +317,74 @@ def aggregate_level2_timing(layers: List[Any],
         "layers": out_layers,
         "total_time": float(total_time),
     }
+
+
+# ---------------------------------------------------------------------------
+# Stage 4: Super-layer aggregation
+# ---------------------------------------------------------------------------
+
+def aggregate_superlayers(layers: List[Any],
+                          models: List[Any],
+                          group_size: int = 10,
+                          include_jump: bool = True,
+                          laser_jump_speed: float = 5000.0,
+                          validate: bool = True,
+                          tol_rel: float = 1e-2,
+                          tol_abs: float = 1e-6) -> Dict[str, Any]:
+    """
+    Group consecutive layers into super-layers of size `group_size` and sum their times.
+
+    Returns a dict:
+    - groups: list of { group_index, layer_indices, layer_times, group_time }
+    - total_time: sum of all group_time
+    """
+    if group_size <= 0:
+        raise ValueError("group_size must be > 0")
+
+    n = len(layers)
+    groups: List[Dict[str, Any]] = []
+    total_time = 0.0
+
+    # Precompute per-layer times
+    layer_times = [
+        float(getLayerTime(layer, models, includeJumpTime=include_jump, laserJumpSpeed=laser_jump_speed))
+        for layer in layers
+    ]
+
+    # Chunk into groups
+    gidx = 0
+    for start in range(0, n, group_size):
+        end = min(start + group_size, n)
+        idxs = list(range(start, end))
+        times = [layer_times[i] for i in idxs]
+        gtime = float(sum(times))
+
+        groups.append({
+            "group_index": gidx,
+            "layer_indices": idxs,
+            "layer_times": times,
+            "group_time": gtime,
+        })
+        total_time += gtime
+        gidx += 1
+
+    if validate:
+        # Validate each group_time equals sum(times) - already constructed that way; check numerically with tol
+        for g in groups:
+            s = float(sum(g["layer_times"]))
+            if not (abs(g["group_time"] - s) <= max(tol_abs, tol_rel * max(1.0, abs(s)))):
+                raise AssertionError(
+                    f"Group {g['group_index']} time mismatch: group_time={g['group_time']:.9f}s, sum(layer_times)={s:.9f}s"
+                )
+
+        # Validate overall total equals sum of group_time
+        sum_groups = float(sum(g["group_time"] for g in groups))
+        if not (abs(total_time - sum_groups) <= max(tol_abs, tol_rel * max(1.0, abs(sum_groups)))):
+            raise AssertionError(
+                f"Total time mismatch: total_time={total_time:.9f}s, sum(groups)={sum_groups:.9f}s"
+            )
+
+    return {
+        "groups": groups,
+        "total_time": float(total_time),
+    }
