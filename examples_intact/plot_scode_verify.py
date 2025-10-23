@@ -50,28 +50,26 @@ def read_islands_scode(path: Path):
     return rows
 
 
-def _convex_hull(points):
-    # Monotonic chain convex hull; points: list of (x, y)
-    pts = sorted(set(points))
-    if len(pts) <= 1:
-        return pts
-
-    def cross(o, a, b):
-        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
-
-    lower = []
-    for p in pts:
-        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
-            lower.pop()
-        lower.append(p)
-
-    upper = []
-    for p in reversed(pts):
-        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
-            upper.pop()
-        upper.append(p)
-
-    return lower[:-1] + upper[:-1]
+def _square_corners_from_midline(x1, y1, x2, y2):
+    # Compute oriented square corners given midpoints of opposite edges
+    dx, dy = (x2 - x1), (y2 - y1)
+    side = (dx * dx + dy * dy) ** 0.5
+    if side == 0:
+        # Degenerate; return a tiny box
+        eps = 1e-6
+        return [(x1 - eps, y1 - eps), (x1 + eps, y1 - eps), (x1 + eps, y1 + eps), (x1 - eps, y1 + eps)]
+    ux, uy = dx / side, dy / side  # unit along midline
+    vx, vy = -uy, ux               # perpendicular unit
+    cx, cy = (x1 + x2) * 0.5, (y1 + y2) * 0.5
+    h = side * 0.5
+    # Four corners: C +/- (u*h) +/- (v*h)
+    corners = [
+        (cx - ux * h - vx * h, cy - uy * h - vy * h),
+        (cx + ux * h - vx * h, cy + uy * h - vy * h),
+        (cx + ux * h + vx * h, cy + uy * h + vy * h),
+        (cx - ux * h + vx * h, cy - uy * h + vy * h),
+    ]
+    return corners
 
 
 def plot_from_scode(ax, island_rows, path_segments):
@@ -86,35 +84,24 @@ def plot_from_scode(ax, island_rows, path_segments):
     cmap = mpl.colormaps.get_cmap('coolwarm')
     idx_to_color = {idx: cmap(0.5 if len(all_idxs) <= 1 else (i / (max(1, len(all_idxs) - 1)))) for i, idx in enumerate(all_idxs)}
 
-    # Draw entry->exit lines for all islands from Query 2 file
+    # Draw all islands as oriented squares (light gray fill), and entry->exit midline
     for r in island_rows:
-        color = idx_to_color.get(r['idx'], (0.6, 0.6, 0.6, 1.0))
-        ax.plot([r['x1'], r['x2']], [r['y1'], r['y2']], color=color, linewidth=0.8, alpha=0.6)
-        # Label island index near midpoint
-        mx, my = (r['x1'] + r['x2']) * 0.5, (r['y1'] + r['y2']) * 0.5
-        ax.text(mx, my, str(r['idx']), color='#666666', fontsize=4, ha='center', va='center')
-
-    # Outline convex hulls for islands present in the paths file
-    seg_by_idx = {}
-    for s in path_segments:
-        seg_by_idx.setdefault(s['idx'], []).append(s)
-
-    for idx, segs in seg_by_idx.items():
-        pts = []
-        for s in segs:
-            pts.append((s['x1'], s['y1']))
-            pts.append((s['x2'], s['y2']))
-        hull = _convex_hull(pts)
-        if len(hull) >= 3:
-            xs = [p[0] for p in hull] + [hull[0][0]]
-            ys = [p[1] for p in hull] + [hull[0][1]]
-            ax.fill(xs, ys, color='#ffcc80', alpha=0.25, zorder=0)
-            ax.plot(xs, ys, color='#ffcc80', linewidth=1.0, alpha=0.8)
+        idx = r['idx']
+        corners = _square_corners_from_midline(r['x1'], r['y1'], r['x2'], r['y2'])
+        xs = [p[0] for p in corners] + [corners[0][0]]
+        ys = [p[1] for p in corners] + [corners[0][1]]
+        ax.fill(xs, ys, color='#dddddd', alpha=0.4, zorder=0)
+        ax.plot(xs, ys, color='#aaaaaa', linewidth=0.8, alpha=0.9, zorder=1)
+        # Entry->exit midline
+        ax.plot([r['x1'], r['x2']], [r['y1'], r['y2']], color='#999999', linewidth=0.7, alpha=0.7, zorder=2)
+        # Annotation: idx and total_time at center
+        cx, cy = (r['x1'] + r['x2']) * 0.5, (r['y1'] + r['y2']) * 0.5
+        ax.text(cx, cy, f"{idx}\n{r['total_time']:.3f}s", color='#555555', fontsize=4.5, ha='center', va='center')
 
     # Draw the path segments color-coded by island-idx
     for s in path_segments:
         color = idx_to_color.get(s['idx'], '#d62728')
-        ax.plot([s['x1'], s['x2']], [s['y1'], s['y2']], color=color, linewidth=0.9, alpha=0.9)
+        ax.plot([s['x1'], s['x2']], [s['y1'], s['y2']], color=color, linewidth=0.9, alpha=0.9, zorder=3)
 
 
 def main():
