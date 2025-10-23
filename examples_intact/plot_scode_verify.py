@@ -84,16 +84,15 @@ def plot_from_scode(ax, island_rows, path_segments):
     cmap = mpl.colormaps.get_cmap('coolwarm')
     idx_to_color = {idx: cmap(0.5 if len(all_idxs) <= 1 else (i / (max(1, len(all_idxs) - 1)))) for i, idx in enumerate(all_idxs)}
 
-    # Draw all islands as oriented squares (light gray fill), and entry->exit midline
+    # Draw all islands as oriented squares (light gray fill) with color-coded edges (coolwarm)
     for r in island_rows:
         idx = r['idx']
         corners = _square_corners_from_midline(r['x1'], r['y1'], r['x2'], r['y2'])
         xs = [p[0] for p in corners] + [corners[0][0]]
         ys = [p[1] for p in corners] + [corners[0][1]]
         ax.fill(xs, ys, color='#dddddd', alpha=0.4, zorder=0)
-        ax.plot(xs, ys, color='#aaaaaa', linewidth=0.8, alpha=0.9, zorder=1)
-        # Entry->exit midline
-        ax.plot([r['x1'], r['x2']], [r['y1'], r['y2']], color='#999999', linewidth=0.7, alpha=0.7, zorder=2)
+        edge_color = idx_to_color.get(idx, '#666666')
+        ax.plot(xs, ys, color=edge_color, linewidth=1.2, alpha=0.95, zorder=1)
         # Annotation: idx and total_time at center
         cx, cy = (r['x1'] + r['x2']) * 0.5, (r['y1'] + r['y2']) * 0.5
         ax.text(cx, cy, f"{idx}\n{r['total_time']:.3f}s", color='#555555', fontsize=4.5, ha='center', va='center')
