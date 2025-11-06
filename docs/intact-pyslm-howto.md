@@ -67,6 +67,24 @@ This writes two files into `examples_intact/`:
 python examples_intact\plot_scode_verify.py --paths examples_intact\neighborhood_paths_L0_x-29.154_y-86.947_r4.00.scode --islands examples_intact\layer_islands_L0.scode
 ```
 
+- Export island info for all layers
+```powershell
+# Per-layer files with per-layer indexing (default)
+python examples_intact\example_export_all_islands.py
+
+# Per-layer files with global indexing across layers
+python examples_intact\example_export_all_islands.py --global-island-indexing
+
+# Single aggregated file containing all islands (global indexing)
+python examples_intact\example_export_all_islands.py --single-file
+```
+Notes:
+- Default layer thickness is `0.5` (change via `--layer-thickness`).
+- Empty layers are skipped (no file is created).
+- Output directory defaults to `examples_intact` (override with `--outdir`).
+- Default model is `models\frameGuide.stl` (override with `--model-path`).
+- Aggregated output is written to `examples_intact\all_layer_islands_global.scode`.
+
 ## 6) Genera tips
 
 - Activate env in a new PowerShell window:
