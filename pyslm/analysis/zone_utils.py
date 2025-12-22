@@ -176,3 +176,144 @@ def find_zone_for_point_with_priority(x: float, y: float,
                 return zone_name
     
     return default
+
+
+# ---------------------------------------------------------------------------
+# Island/Layer Classification Functions (Task 2)
+# ---------------------------------------------------------------------------
+
+def classify_island_zone(island_geom: Any,
+                         zone_polys: Dict[str, MultiPolygon],
+                         priority: Optional[List[str]] = None,
+                         default: str = 'bulk') -> str:
+    """
+    Classify an island HatchGeometry by which zone contains its centroid.
+    
+    Args:
+        island_geom: HatchGeometry with boundaryPoly attribute
+        zone_polys: dict from build_zone_polygons()
+        priority: optional list of zone names to check in order (first match wins)
+        default: fallback zone if centroid not in any zone
+    
+    Returns:
+        zone name string
+    
+    Note:
+        If island_geom lacks boundaryPoly, falls back to computing centroid
+        from coords if available, otherwise returns default.
+    """
+    if Point is None:
+        raise ImportError("shapely is required for zone utilities")
+    
+    # Get centroid from boundaryPoly if available
+    boundary_poly = getattr(island_geom, 'boundaryPoly', None)
+    
+    if boundary_poly is not None and hasattr(boundary_poly, 'centroid'):
+        centroid = boundary_poly.centroid
+        x, y = centroid.x, centroid.y
+    else:
+        # Fallback: compute centroid from coords
+        coords = getattr(island_geom, 'coords', None)
+        if coords is not None and len(coords) > 0:
+            x, y = float(coords[:, 0].mean()), float(coords[:, 1].mean())
+        else:
+            return default
+    
+    # Use priority-based lookup if specified
+    if priority:
+        return find_zone_for_point_with_priority(x, y, zone_polys, priority, default)
+    else:
+        return find_zone_for_point(x, y, zone_polys, default)
+
+
+def classify_layer_geometry(layer: Any,
+                            zone_polys: Dict[str, MultiPolygon],
+                            zone_buildstyles: Dict[str, int],
+                            contour_bid: int = 10,
+                            default_zone: str = 'bulk',
+                            priority: Optional[List[str]] = None) -> None:
+    """
+    Classify all geometry in a layer and assign zoneName + bid attributes.
+    Modifies layer.geometry in place.
+    
+    Args:
+        layer: Layer with geometry (islands have subType='island', 
+               contours have 'outer'/'inner')
+        zone_polys: dict from build_zone_polygons()
+        zone_buildstyles: dict mapping zone_name -> bid
+        contour_bid: bid to assign to all contours
+        default_zone: fallback for islands outside all zones
+        priority: optional list of zone names to check in order
+    
+    Side effects:
+        Sets geom.zoneName and geom.bid for each geometry in layer.geometry
+    
+    Example:
+        >>> zone_buildstyles = {'bulk': 1, 'overhang': 2, 'boundary': 3}
+        >>> classify_layer_geometry(layer, zone_polys, zone_buildstyles,
+        ...                         contour_bid=10, default_zone='bulk')
+        >>> # Now each geom in layer.geometry has .zoneName and .bid
+    """
+    geometry_list = getattr(layer, 'geometry', [])
+    
+    for geom in geometry_list:
+        sub_type = getattr(geom, 'subType', '')
+        
+        if sub_type == 'island':
+            # Classify island by centroid
+            zone_name = classify_island_zone(geom, zone_polys, priority, default_zone)
+            geom.zoneName = zone_name
+            geom.bid = zone_buildstyles.get(zone_name, zone_buildstyles.get(default_zone, 1))
+            
+        elif sub_type in ('outer', 'inner'):
+            # Contours get dedicated parameters
+            geom.zoneName = 'contour'
+            geom.bid = contour_bid
+            
+        else:
+            # Unknown geometry type - try to classify by coords centroid
+            coords = getattr(geom, 'coords', None)
+            if coords is not None and len(coords) > 0:
+                x, y = float(coords[:, 0].mean()), float(coords[:, 1].mean())
+                if priority:
+                    zone_name = find_zone_for_point_with_priority(x, y, zone_polys, priority, default_zone)
+                else:
+                    zone_name = find_zone_for_point(x, y, zone_polys, default_zone)
+                geom.zoneName = zone_name
+                geom.bid = zone_buildstyles.get(zone_name, zone_buildstyles.get(default_zone, 1))
+            else:
+                # No coords, assign default
+                geom.zoneName = default_zone
+                geom.bid = zone_buildstyles.get(default_zone, 1)
+
+
+def get_zone_statistics(layer: Any) -> Dict[str, Dict[str, int]]:
+    """
+    Compute statistics about zone assignments in a layer.
+    
+    Args:
+        layer: Layer with classified geometry (each geom has .zoneName)
+    
+    Returns:
+        dict with:
+        - 'by_zone': {zone_name: count}
+        - 'by_type': {subType: count}
+        - 'total': total geometry count
+    """
+    by_zone: Dict[str, int] = {}
+    by_type: Dict[str, int] = {}
+    
+    geometry_list = getattr(layer, 'geometry', [])
+    
+    for geom in geometry_list:
+        zone_name = getattr(geom, 'zoneName', 'unknown')
+        sub_type = getattr(geom, 'subType', 'unknown')
+        
+        by_zone[zone_name] = by_zone.get(zone_name, 0) + 1
+        by_type[sub_type] = by_type.get(sub_type, 0) + 1
+    
+    return {
+        'by_zone': by_zone,
+        'by_type': by_type,
+        'total': len(geometry_list),
+    }
