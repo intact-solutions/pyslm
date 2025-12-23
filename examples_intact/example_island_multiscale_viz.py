@@ -54,7 +54,7 @@ FONT_ISLAND_TIME = 5
 
 def build_layer(z: float):
     solidPart = pyslm.Part('inversePyramid')
-    solidPart.setGeometry('models/frameGuide.stl')
+    solidPart.setGeometry('models/ge_bracket_large_1_1.STL')
     solidPart.dropToPlatform()
     solidPart.origin[0] = 5.0
     solidPart.origin[1] = 2.5
@@ -66,7 +66,7 @@ def build_layer(z: float):
     myHatcher = hatching.IslandHatcher()
     myHatcher.islandWidth = ISLAND_WIDTH
     myHatcher.islandOverlap = -0.1
-    myHatcher.hatchAngle = 10
+    myHatcher.hatchAngle = 0
     myHatcher.volumeOffsetHatch = 0.08
     myHatcher.spotCompensation = 0.06
     myHatcher.numInnerContours = 2
@@ -194,12 +194,17 @@ def main():
     geomSlice, layer = build_layer(Z_TARGET)
     models = assign_model(layer)
 
-    islands = get_island_geometries(layer)
-    owner, owner_point = pick_owner_and_point(islands)
+    #islands = get_island_geometries(layer)
+    #owner, owner_point = pick_owner_and_point(islands)
 
     # Neighbors via spatial index
     index = IslandIndex(layer, neighbor_radius=NEIGHBOR_RADIUS_R)
+    ox = 0
+    oy = -50
+    owner = index.find_island_at_point(ox, oy)
+    owner_point = (ox,oy)
     neighbors = index.neighbors_for_island(owner) if owner is not None else []
+    print(owner.boundingBox(),dir(owner))
 
     # Timing per island for annotation
     entries = compute_layer_geometry_times(layer, models, include_jump=True, validate=False)
@@ -208,7 +213,7 @@ def main():
     fig, ax = plt.subplots(figsize=(7, 7))
     draw_figure1(ax, geomSlice, layer, models, owner, neighbors, owner_point, time_by_geom)
     plt.tight_layout()
-    plt.show()
+    plt.savefig('test.png')
 
 
 if __name__ == '__main__':

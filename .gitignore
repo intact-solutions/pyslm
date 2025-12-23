@@ -26,6 +26,9 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+*.png
+*.txt
+*.scode
 
 # Pycharm Project Information
 .idea/

@@ -20,31 +20,33 @@ from pyslm.analysis.export_scode import (
 # ----------------------------
 # Config
 # ----------------------------
-Z_TARGET = 14.99
-ISLAND_WIDTH = 5.0
+Z_TARGET = 0.001
+ISLAND_WIDTH = 0.002
 NEIGHBOR_RADIUS_R = 0.8 * ISLAND_WIDTH
 OUTDIR = Path(__file__).resolve().parent
 
 
 def build_layer(z: float):
     solidPart = pyslm.Part('inversePyramid')
-    solidPart.setGeometry('models/frameGuide.stl')
+    solidPart.setGeometry('ge_bracket_large_1_1.STL')
     solidPart.dropToPlatform()
-    solidPart.origin[0] = 5.0
-    solidPart.origin[1] = 2.5
-    solidPart.scaleFactor = 2.0
+    solidPart.origin[0] = 0.0
+    solidPart.origin[1] = 0.0
+    solidPart.scaleFactor = 0.001
     solidPart.rotation = [0, 0.0, np.pi]
+    print(solidPart.boundingBox)
 
     geomSlice = solidPart.getVectorSlice(z)
 
     myHatcher = hatching.IslandHatcher()
     myHatcher.islandWidth = ISLAND_WIDTH
-    myHatcher.islandOverlap = -0.1
-    myHatcher.hatchAngle = 10
-    myHatcher.volumeOffsetHatch = 0.08
-    myHatcher.spotCompensation = 0.06
-    myHatcher.numInnerContours = 2
-    myHatcher.numOuterContours = 1
+    myHatcher.islandOverlap = 0
+    myHatcher.hatchAngle = 0
+    myHatcher.volumeOffsetHatch = 0
+    myHatcher.spotCompensation = 0
+    myHatcher.numInnerContours = 0
+    myHatcher.numOuterContours = 0
+    myHatcher.hatchDistance = 1e-4
     myHatcher.hatchSortMethod = hatching.AlternateSort()
     myHatcher.groupIslands = True
 
@@ -94,7 +96,8 @@ def main():
                 ox, oy = float(arr[:, 0].mean()), float(arr[:, 1].mean())
     else:
         ox, oy = 0.0, 0.0
-
+    ox = -0.0950315
+    oy = 0.00659148
     # Query 1: write neighborhood paths .scode
     q1_path = OUTDIR / f"neighborhood_paths_L0_x{ox:.3f}_y{oy:.3f}_r{NEIGHBOR_RADIUS_R:.2f}.scode"
     n1 = write_neighborhood_paths_scode(layer, models, ox, oy, NEIGHBOR_RADIUS_R, Z_TARGET, str(q1_path), island_index_base=0)

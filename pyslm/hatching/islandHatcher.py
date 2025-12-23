@@ -140,7 +140,7 @@ class Island(InnerHatchRegion):
         :return: The transformed and ordered hatch vectors
         """
         isOdd = np.mod(sum(self.posId), 2)
-        coords = self.generateInternalHatch(isOdd)
+        coords = self.generateInternalHatch(False)
         return self.transformCoordinates(coords)
 
 
@@ -156,9 +156,9 @@ class IslandHatcher(Hatcher):
 
         super().__init__()
 
-        self._islandWidth = 5.0
-        self._islandOverlap = 0.1
-        self._islandOffset = 0.5
+        self._islandWidth = 2.0
+        self._islandOverlap = 0.0
+        self._islandOffset = 0.0
         # Opt-in: when True, emit one HatchGeometry per island (default False preserves legacy behavior)
         self._groupIslands = False
 
@@ -452,7 +452,7 @@ class IslandHatcher(Hatcher):
                 else:
                     per_lines = self.clipperToHatchArray(coords.reshape(-1, 2, 3))
 
-                if len(per_lines) == 0:
+                if per_lines.size == 0:
                     continue
 
                 # Sort by pseudo-order stored in z component
