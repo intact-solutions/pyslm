@@ -62,9 +62,32 @@ This writes two files into `examples_intact/`:
 - `neighborhood_paths_L0_x{X}_y{Y}_r{R}.scode`
 - `layer_islands_L0.scode`
 
+- Export SCODE files (GE bracket + zones)
+```powershell
+python examples_intact\export_scode_gebracket_zone_aware.py
+```
+This writes two files into `examples_intact/`:
+- `gebracket_neighborhood_paths_L0_x{X}_y{Y}_r{R}.scode`
+- `gebracket_layer_islands_L0.scode`
+
+Notes:
+- The `.scode` formats (columns) are the same as the non-GE examples.
+- The scan parameters used during export (power/speed via `bid`/BuildStyle) vary by zone.
+
 - Verify SCODE visually (replace the filename with yours if different)
 ```powershell
 python examples_intact\plot_scode_verify.py --paths examples_intact\neighborhood_paths_L0_x-29.154_y-86.947_r4.00.scode --islands examples_intact\layer_islands_L0.scode
+```
+
+- Verify SCODE visually (GE bracket + zones)
+```powershell
+python examples_intact\plot_scode_verify.py --paths examples_intact\gebracket_neighborhood_paths_L0_x-94.180_y-28.258_r4.00.scode --islands examples_intact\gebracket_layer_islands_L0.scode
+```
+
+Notes:
+- If your path contains spaces and you need to quote the python executable path, use PowerShell's call operator:
+```powershell
+& ".venv\Scripts\python.exe" "examples_intact\plot_scode_verify.py" --paths "..." --islands "..."
 ```
 
 - Export island info for all layers
@@ -84,6 +107,22 @@ Notes:
 - Output directory defaults to `examples_intact` (override with `--outdir`).
 - Default model is `models\frameGuide.stl` (override with `--model-path`).
 - Aggregated output is written to `examples_intact\all_layer_islands_global.scode`.
+
+- Export island info for all layers (GE bracket + zones)
+```powershell
+# Per-layer files with per-layer indexing (default)
+python examples_intact\export_all_island_gebracket_zone_aware.py
+
+# Per-layer files with global indexing across layers
+python examples_intact\export_all_island_gebracket_zone_aware.py --global-island-indexing
+
+# Single aggregated file containing all islands (global indexing)
+python examples_intact\export_all_island_gebracket_zone_aware.py --single-file
+```
+Notes:
+- Default model is `geometry_intact\zone_aware_island_gebracket\ge_bracket_original.stl` (override with `--model-path`).
+- Aggregated output is written to `examples_intact\gebracket_all_layer_islands_global.scode`.
+- The `.scode` format is unchanged; zone-specific scan parameters are applied via `bid`/BuildStyle.
 
 ## 6) Genera tips
 
