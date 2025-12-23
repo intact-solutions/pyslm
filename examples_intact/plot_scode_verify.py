@@ -7,6 +7,11 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 
 
+_repo_root = Path(__file__).resolve().parents[1]
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
+
 def read_paths_scode(path: Path):
     segs = []
     with open(path, 'r', encoding='utf-8') as fh:
@@ -122,6 +127,7 @@ def main():
     island_rows = read_islands_scode(islands_file)
 
     fig, ax = plt.subplots(figsize=(7, 7))
+
     plot_from_scode(ax, island_rows, path_segments)
     ax.set_title(f'Verify paths: {paths_file.name}\nIslands: {islands_file.name}')
     plt.tight_layout()

@@ -444,15 +444,21 @@ class IslandHatcher(Hatcher):
                     continue  # skip islands that don't intersect
 
                 coords = entry['coords']
+                if coords is None or coords.size == 0:
+                    continue
                 if entry['requiresClipping']:
                     per_paths = self.clipLines(curBoundary, coords.reshape(-1, 2, 3))
                     if per_paths is None or len(per_paths) == 0:
+                        continue
+                    per_paths = [p for p in per_paths if p is not None and len(p) > 0]
+                    if len(per_paths) == 0:
                         continue
                     per_lines = self.clipperToHatchArray(per_paths)
                 else:
                     per_lines = self.clipperToHatchArray(coords.reshape(-1, 2, 3))
 
-                if per_lines.size == 0:
+                per_lines = np.asarray(per_lines)
+                if per_lines.ndim != 3 or per_lines.shape[0] == 0 or per_lines.shape[1] < 2:
                     continue
 
                 # Sort by pseudo-order stored in z component
