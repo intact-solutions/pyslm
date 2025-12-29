@@ -29,13 +29,13 @@ def build_part_and_hatcher(model_path: str):
 
     my_hatcher = hatching.IslandHatcher()
     my_hatcher.groupIslands = True
-    my_hatcher.islandWidth = 5.0
-    my_hatcher.islandOverlap = 0.1
-    my_hatcher.hatchAngle = 67
-    my_hatcher.volumeOffsetHatch = -0.08
-    my_hatcher.spotCompensation = 0.06
-    my_hatcher.numInnerContours = 2
-    my_hatcher.numOuterContours = 1
+    my_hatcher.islandWidth = 2.0
+    my_hatcher.islandOverlap = 0
+    my_hatcher.hatchAngle = 0
+    my_hatcher.volumeOffsetHatch = 0
+    my_hatcher.spotCompensation = 0
+    my_hatcher.numInnerContours = 0
+    my_hatcher.numOuterContours = 0
     my_hatcher.hatchSortMethod = hatching.AlternateSort()
 
     return solid_part, my_hatcher
@@ -122,6 +122,8 @@ def main():
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
+    args.single_file = True
+    args.layer_thickness = 0.1
     if args.single_file and not args.global_island_indexing:
         args.global_island_indexing = True
 

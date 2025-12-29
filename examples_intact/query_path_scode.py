@@ -86,7 +86,7 @@ def assign_model(layer):
 	# Minimal BuildStyle/Model for timing/exports
 	bstyle = pyslm.geometry.BuildStyle()
 	bstyle.bid = 1
-	bstyle.laserSpeed = 1.8  # [mm/s] continuous mode
+	bstyle.laserSpeed = 2.2  # [mm/s] continuous mode
 	bstyle.laserPower = 160.0  # [W]
 	bstyle.jumpSpeed = 5000.0  # [mm/s]
 
@@ -101,7 +101,7 @@ def main():
 	OUTDIR = Path(__file__).resolve().parent
 	
 	layer_thickness = 1e-4
-	fname = "ge_bracket_large_1_1_block"
+	fname = "ge_bracket_large_1_1"
 	geomSlices, layers, zs = gen_island_slices(fname,layer_thickness)
 	island_dict = {}
 	n_island = 0
@@ -113,7 +113,7 @@ def main():
 		n_island += len(islands)
 		#print("generating slices:",z,round(z/layer_thickness),island_dict.keys(),n_island)
 	print(island_dict.keys())
-	query_points = np.loadtxt("pts2.txt")
+	query_points = np.loadtxt("pts_l.txt")
 	for p in query_points:
 		idx = np.argmin(np.abs(zs - p[2]))
 		if np.abs(zs[idx] - p[2])>layer_thickness:

@@ -96,13 +96,13 @@ def build_layer(z: float):
 
 def build_models(zone_bids, contour_bid: int):
     zone_params = {
-        "high_sensi": {"power": 200.0, "speed": 2500.0},
-        "med_sensi": {"power": 200.0, "speed": 1750.0},
-        "low_sensi": {"power": 200.0, "speed": 2500.0},
-        "base": {"power": 200.0, "speed": 2500.0},
-        "boundary": {"power": 200.0, "speed": 2500.0},
-        "interface": {"power": 200.0, "speed": 2500.0},
-        "contour": {"power": 180.0, "speed": 400.0},
+        "high_sensi": {"power": 200.0, "speed": 2.5},
+        "med_sensi": {"power": 200.0, "speed": 1.75},
+        "low_sensi": {"power": 200.0, "speed": 2.5},
+        "base": {"power": 200.0, "speed": 2.5},
+        "boundary": {"power": 200.0, "speed": 2.5},
+        "interface": {"power": 200.0, "speed": 2.5},
+        "contour": {"power": 180.0, "speed": 0.4},
     }
 
     model = pyslm.geometry.Model()
@@ -148,11 +148,11 @@ def main():
         ox, oy = 0.0, 0.0
 
     q1_path = OUTDIR / f"gebracket_neighborhood_paths_L0_x{ox:.3f}_y{oy:.3f}_r{NEIGHBOR_RADIUS_R:.2f}.scode"
-    n1 = write_neighborhood_paths_scode(layer, models, ox, oy, NEIGHBOR_RADIUS_R, Z_TARGET, str(q1_path), island_index_base=0)
+    n1 = write_neighborhood_paths_scode([layer], models, ox, oy, NEIGHBOR_RADIUS_R, [Z_TARGET], str(q1_path),[0])
     print(f"Query1: wrote {n1} segments to {q1_path}")
 
     q2_path = OUTDIR / "gebracket_layer_islands_L0.scode"
-    n2 = write_layer_island_info_scode(layer, models, Z_TARGET, str(q2_path), island_index_base=0)
+    n2 = write_layer_island_info_scode(layer, models, Z_TARGET, str(q2_path),0)
     print(f"Query2: wrote {n2} island rows to {q2_path}")
 
 

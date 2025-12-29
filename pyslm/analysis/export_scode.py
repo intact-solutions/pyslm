@@ -9,7 +9,7 @@ import numpy as np
 
 from .island_utils import IslandIndex, get_island_geometries, compute_layer_geometry_times
 
-
+SCALE = 1
 def _iter_segments(coords: np.ndarray) -> Iterable[Tuple[float, float, float, float]]:
     if coords is None:
         return
@@ -102,7 +102,7 @@ def write_neighborhood_paths_scode(
         count = 0
         for x1, y1, x2, y2 in _iter_segments(getattr(geom, "coords", None)) or []:
             fh.write(
-                f"{_format_float(x1)} {_format_float(y1)} {_format_float(x2)} {_format_float(y2)} {_format_float(z)} {_format_float(power)} {_format_float(speed)} {idx}\n"
+                f"{_format_float(x1*SCALE)} {_format_float(y1*SCALE)} {_format_float(x2*SCALE)} {_format_float(y2*SCALE)} {_format_float(z*SCALE)} {_format_float(power)} {_format_float(speed)} {idx}\n"
             )
             count += 1
         return count
@@ -232,10 +232,9 @@ def write_layer_island_info_scode(
 
             idx = int(seq_map.get(cur, -1))
             fh.write(
-                f"{_format_float(e_in[0])} {_format_float(e_in[1])} {_format_float(e_out[0])} {_format_float(e_out[1])} "
-                f"{_format_float(z)} {_format_float(power)} {_format_float(round(eq_speed,2))} {_format_float(total_time)} {idx}\n"
+                f"{_format_float(e_in[0]*SCALE)} {_format_float(e_in[1]*SCALE)} {_format_float(e_out[0]*SCALE)} {_format_float(e_out[1]*SCALE)} "
+                f"{_format_float(z*SCALE)} {_format_float(power)} {_format_float(round(eq_speed,2))} {_format_float(total_time)} {idx}\n"
             )
             written += 1
 
     return written
-

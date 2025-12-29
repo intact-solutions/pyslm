@@ -100,24 +100,22 @@ def gen_island_slices(filename,layer_thickness):
 		zs.append(z)
 	return geomSlices, layers, zs
 
-def assign_model(layer):
-	# Assign model/buildstyle ids to each geometry
-	for g in getattr(layer, 'geometry', []):
-		g.mid = 1
-		g.bid = 1
-
-	# Minimal BuildStyle/Model for timing
+def build_minimal_models():
 	bstyle = pyslm.geometry.BuildStyle()
 	bstyle.bid = 1
-	bstyle.laserSpeed = 0.1  # [mm/s] continuous mode
-	bstyle.laserPower = 190.0  # [W]
-	bstyle.jumpSpeed = 5000.0  # [mm/s]
+	bstyle.laserSpeed = 0.1
+	bstyle.laserPower = 160
+	bstyle.jumpSpeed = 5000.0
 
 	model = pyslm.geometry.Model()
 	model.mid = 1
 	model.buildStyles.append(bstyle)
 
 	return [model]
+def assign_model(layer):
+    for g in getattr(layer, 'geometry', []) or []:
+        g.mid = models[0].mid
+        g.bid = models[0].buildStyles[0].bid
 
 
 def pick_owner_and_point(island_geoms):
@@ -1192,16 +1190,18 @@ if __name__ == "__main__":
 	plot_island_size = 3
 	layer_thickness = 1e-4
 	hatch_space = 1e-4
-	fname = "ge_bracket_large_1_1_block"
+	fname = "ge_bracket_large_1_1"
 	q2_path = OUTDIR / (fname+"_layer.scode")
 	island_path = OUTDIR / (fname+".scode")
 	geomSlices, layers, zs = gen_island_slices(fname,layer_thickness)
+	
+	models = build_minimal_models()
 	island_dict = {}
 	n_island = 0
 	all_islands = []
 	for geoslice, layer, z in zip(geomSlices,layers,zs):
 		#print("write island scode:",z)
-		models = assign_model(layer)
+		assign_model(layer)
 		islands = get_island_geometries(layer)
 		for islandId,island in enumerate(islands):
 			if round(z/layer_thickness) not in island_dict:
@@ -1254,11 +1254,12 @@ if __name__ == "__main__":
 	#print('inside_islands:',inside_islands)
 	
 	# randomly choose some points of interest
-	init_grids1 = generate_grid(xmin,xmax,ymin,ymax,zmin,zmax, 2*island_size, 2*layer_thickness)
+	init_grids1 = generate_grid(xmin,xmax,ymin,ymax,zmin,zmax, island_size, layer_thickness)
+	init_grids2 = generate_grid(xmin,xmax,ymin,ymax,zmin,zmax, 2*island_size, 2*layer_thickness)
 	
 	point_of_interest = {}
 	sampled_islands = []
-	for z, coords in init_grids1.items():
+	for z, coords in init_grids2.items():
 		polygons = slice_mesh_to_polygons(fname+'.STL', z, xmin, ymin)
 		for coord in coords:
 			p = [coord[0],coord[1],z]
@@ -1269,6 +1270,53 @@ if __name__ == "__main__":
 							point_of_interest[z] = [coord]
 						else:
 							point_of_interest[z].append(coord)
+			if z>0.003 and z<0.005:
+				if abs(coord[0]+0.05)<0.008 and abs(coord[1])<0.008:
+					if any(poly.contains(Point(p)) for poly in polygons):
+						if (z not in point_of_interest):
+							point_of_interest[z] = [coord]
+						else:
+							point_of_interest[z].append(coord)
+			if z<0.002:
+				if abs(coord[0]-0.025)<0.008 and abs(coord[1])<0.008:
+					if any(poly.contains(Point(p)) for poly in polygons):
+						if (z not in point_of_interest):
+							point_of_interest[z] = [coord]
+						else:
+							point_of_interest[z].append(coord)
+			if z>0.003 and z<0.005:
+				if abs(coord[0]-0.025)<0.008 and abs(coord[1])<0.008:
+					if any(poly.contains(Point(p)) for poly in polygons):
+						if (z not in point_of_interest):
+							point_of_interest[z] = [coord]
+						else:
+							point_of_interest[z].append(coord)
+			if z>0.032 and z<0.034:
+				if abs(coord[0]+0.02)<0.008 and abs(coord[1]+0.04)<0.008:
+					if any(poly.contains(Point(p)) for poly in polygons):
+						if (z not in point_of_interest):
+							point_of_interest[z] = [coord]
+						else:
+							point_of_interest[z].append(coord)
+			if z>0.032 and z<0.034:
+				if abs(coord[0]-0.01)<0.008 and abs(coord[1]+0.04)<0.008:
+					if any(poly.contains(Point(p)) for poly in polygons):
+						if (z not in point_of_interest):
+							point_of_interest[z] = [coord]
+						else:
+							point_of_interest[z].append(coord)
+		
+		#else:
+		#	print('loi:',z)
+	
+	
+	for z, coords in init_grids1.items():
+		polygons = slice_mesh_to_polygons(fname+'.STL', z, xmin, ymin)
+		for coord in coords:
+			p = [coord[0],coord[1],z]
+			if z<0.002:
+				if abs(coord[0]+0.05)<0.008 and abs(coord[1])<0.008:
+					if any(poly.contains(Point(p)) for poly in polygons):
 						dist = np.inf
 						for data in island_dict[round(z/layer_thickness)]["pts"]:
 							dist_data = np.linalg.norm(np.array(data["coord"]) - np.array(p))
@@ -1282,13 +1330,9 @@ if __name__ == "__main__":
 						#owner = island_dict[round(z/layer_thickness)]["layer"].find_island_at_point(coord[0],coord[1])
 						#if owner != None:
 						#	print("cl1:",get_island_idx(owner,island_dict[round(z/layer_thickness)]["layer"]))
-			if z>=0.003 and z<0.005:
+			if z>0.003 and z<0.005:
 				if abs(coord[0]+0.05)<0.008 and abs(coord[1])<0.008:
 					if any(poly.contains(Point(p)) for poly in polygons):
-						if (z not in point_of_interest):
-							point_of_interest[z] = [coord]
-						else:
-							point_of_interest[z].append(coord)
 						dist = np.inf
 						for data in island_dict[round(z/layer_thickness)]["pts"]:
 							dist_data = np.linalg.norm(np.array(data["coord"]) - np.array(p))
@@ -1301,15 +1345,11 @@ if __name__ == "__main__":
 							sampled_islands.append(islandId)
 
 						#owner = island_dict[round(z/layer_thickness)]["layer"].find_island_at_point(coord[0],coord[1])
-						#if owner != None:
+							#if owner != None:
 						#	print("cl2:",get_island_idx(owner,island_dict[round(z/layer_thickness)]["layer"]))
 			if z<0.002:
 				if abs(coord[0]-0.025)<0.008 and abs(coord[1])<0.008:
 					if any(poly.contains(Point(p)) for poly in polygons):
-						if (z not in point_of_interest):
-							point_of_interest[z] = [coord]
-						else:
-							point_of_interest[z].append(coord)
 						dist = np.inf
 						for data in island_dict[round(z/layer_thickness)]["pts"]:
 							dist_data = np.linalg.norm(np.array(data["coord"]) - np.array(p))
@@ -1323,13 +1363,9 @@ if __name__ == "__main__":
 						#owner = island_dict[round(z/layer_thickness)]["layer"].find_island_at_point(coord[0],coord[1])
 						#if owner != None:
 						#	print("cr1:",get_island_idx(owner,island_dict[round(z/layer_thickness)]["layer"]))
-			if z>=0.003 and z<0.005:
+			if z>0.003 and z<0.005:
 				if abs(coord[0]-0.025)<0.008 and abs(coord[1])<0.008:
 					if any(poly.contains(Point(p)) for poly in polygons):
-						if (z not in point_of_interest):
-							point_of_interest[z] = [coord]
-						else:
-							point_of_interest[z].append(coord)
 						dist = np.inf
 						for data in island_dict[round(z/layer_thickness)]["pts"]:
 							dist_data = np.linalg.norm(np.array(data["coord"]) - np.array(p))
@@ -1340,13 +1376,34 @@ if __name__ == "__main__":
 						if dist <= ISLAND_WIDTH and islandId not in sampled_islands:
 							print("cr2:",islandId)
 							sampled_islands.append(islandId)
-						#owner = island_dict[round(z/layer_thickness)]["layer"].find_island_at_point(coord[0],coord[1])
-						#if owner != None:
-						#	print("cr2:",get_island_idx(owner,island_dict[round(z/layer_thickness)]["layer"]))
-
+			if z>0.032 and z<0.034:
+				if abs(coord[0]+0.02)<0.008 and abs(coord[1]+0.04)<0.008:
+					if any(poly.contains(Point(p)) for poly in polygons):
+						dist = np.inf
+						for data in island_dict[round(z/layer_thickness)]["pts"]:
+							dist_data = np.linalg.norm(np.array(data["coord"]) - np.array(p))
+							if dist_data<dist:
+								dist = dist_data
+								islandId = data["id"]
+						islandId += island_dict[round(z/layer_thickness)]["bid"]
+						if dist <= ISLAND_WIDTH and islandId not in sampled_islands:
+							print("cu1:",islandId)
+							sampled_islands.append(islandId)
+			if z>0.032 and z<0.034:
+				if abs(coord[0]-0.01)<0.008 and abs(coord[1]+0.04)<0.008:
+					if any(poly.contains(Point(p)) for poly in polygons):
+						dist = np.inf
+						for data in island_dict[round(z/layer_thickness)]["pts"]:
+							dist_data = np.linalg.norm(np.array(data["coord"]) - np.array(p))
+							if dist_data<dist:
+								dist = dist_data
+								islandId = data["id"]
+						islandId += island_dict[round(z/layer_thickness)]["bid"]
+						if dist <= ISLAND_WIDTH and islandId not in sampled_islands:
+							print("cu2:",islandId)
+							sampled_islands.append(islandId)		
 		#else:
 		#	print('loi:',z)
-	
 	
 	'''
 	# uniform sampling + adaptive sampling
