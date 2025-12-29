@@ -126,8 +126,16 @@ def find_zone_for_point(x: float, y: float,
     pt = Point(x, y)
     
     for zone_name, mpoly in zone_polys.items():
-        if mpoly.contains(pt):
-            return zone_name
+        try:
+            if mpoly.contains(pt):
+                return zone_name
+        except Exception:
+            # TopologyException - try fixing with buffer(0)
+            try:
+                if mpoly.buffer(0).contains(pt):
+                    return zone_name
+            except Exception:
+                pass
     
     return default
 
@@ -166,14 +174,29 @@ def find_zone_for_point_with_priority(x: float, y: float,
     
     for zone_name in priority:
         if zone_name in zone_polys:
-            if zone_polys[zone_name].contains(pt):
-                return zone_name
+            try:
+                if zone_polys[zone_name].contains(pt):
+                    return zone_name
+            except Exception:
+                # TopologyException - try fixing with buffer(0)
+                try:
+                    if zone_polys[zone_name].buffer(0).contains(pt):
+                        return zone_name
+                except Exception:
+                    pass
     
     # Check any zones not in priority list
     for zone_name, mpoly in zone_polys.items():
         if zone_name not in priority:
-            if mpoly.contains(pt):
-                return zone_name
+            try:
+                if mpoly.contains(pt):
+                    return zone_name
+            except Exception:
+                try:
+                    if mpoly.buffer(0).contains(pt):
+                        return zone_name
+                except Exception:
+                    pass
     
     return default
 
