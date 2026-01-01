@@ -66,74 +66,45 @@ def _write_header(fh, lines: List[str]) -> None:
 
 
 def write_neighborhood_paths_scode(
-    layers: List[Any],
+    layer: Any,
     models: List[Any],
     x: float,
     y: float,
     radius: float,
-    zs: List[float],
+    z: float,
     out_path: str,
-    bids: List[int]
+    island_index_base: int = 0,
 ) -> int:
+    index = IslandIndex(layer, neighbor_radius=radius)
+    owner = index.find_island_at_point(x, y)
+    neighbors: List[Any] = index.neighbors_for_island(owner) if owner is not None else []
+
+    seq_map = _island_sequence_map(layer, base=island_index_base)
+
     written = 0
-    index = None
-    owner = None
-    seq_map = {}
-    def centroid_of(geom: Any) -> Tuple[float, float]:
-        poly = getattr(geom, "boundaryPoly", None)
-        if poly is None:
-            coords = getattr(geom, "coords", None)
-            if coords is None or len(coords) == 0:
-                return (0.0, 0.0)
-            c = np.asarray(coords, dtype=float)
-            return (float(c[:, 0].mean()), float(c[:, 1].mean()))
-        cx, cy = poly.centroid.coords[0]
-        return float(cx), float(cy)
-    def write_geom(geom: Any) -> int:
-        if geom is None:
-            return 0
-        bs = _resolve_buildstyle(geom, [model])
-        power = float(getattr(bs, "laserPower", 0.0) if bs is not None else 0.0)
-        speed = float(getattr(bs, "laserSpeed", 0.0) if bs is not None else 0.0)
-        if lidx<len(layers)-1:
-            speed = 100000
-            power = 0.01
-        idx = int(seq_map.get(geom, -1))
-        count = 0
-        for x1, y1, x2, y2 in _iter_segments(getattr(geom, "coords", None)) or []:
-            fh.write(
-                f"{_format_float(x1*SCALE)} {_format_float(y1*SCALE)} {_format_float(x2*SCALE)} {_format_float(y2*SCALE)} {_format_float(z*SCALE)} {_format_float(power)} {_format_float(speed)} {idx}\n"
-            )
-            count += 1
-        return count
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as fh:
-        for lidx, (layer,model,z, island_index_base) in enumerate(zip(layers,models,zs,bids)):
-            index = IslandIndex(layer, neighbor_radius=radius)
-            owner = index.find_island_at_point(x, y)
-            neighbors: List[Any] = index.neighbors_for_island(owner) if owner is not None else []
 
-            seq_map = _island_sequence_map(layer, base=island_index_base)
+        def write_geom(geom: Any) -> int:
+            if geom is None:
+                return 0
+            bs = _resolve_buildstyle(geom, models)
+            power = float(getattr(bs, "laserPower", 0.0) if bs is not None else 0.0)
+            speed = float(getattr(bs, "laserSpeed", 0.0) if bs is not None else 0.0)
+            idx = int(seq_map.get(geom, -1))
+            count = 0
+            for x1, y1, x2, y2 in _iter_segments(getattr(geom, "coords", None)) or []:
+                fh.write(
+                    f"{_format_float(x1*SCALE)} {_format_float(y1*SCALE)} {_format_float(x2*SCALE)} {_format_float(y2*SCALE)} {_format_float(z*SCALE)} {_format_float(power)} {_format_float(speed)} {idx}\n"
+                )
+                count += 1
+            return count
 
-            '''
-            _write_header(
-                fh,
-                [
-                    ".scode Query 1 – neighborhood paths",
-                    "columns: x1 y1 x2 y2 z power speed island-idx",
-                    f"params: x={_format_float(x)} y={_format_float(y)} r={_format_float(radius)} z={_format_float(z)} index_base={island_index_base}",
-                    "units: mm(mm/s for speed), W(power)",
-                ],
-            )
-            '''
-            neighbors.append(owner)
-            neighbors = sorted(neighbors,key=lambda geom: int(seq_map.get(geom, -1)))
-            for nb in neighbors:
-                if lidx == len(layers)-1 and int(seq_map.get(nb, -1)>int(seq_map.get(owner, -1))):
-                    continue
-                written += write_geom(nb)
+        written += write_geom(owner)
+        for nb in neighbors:
+            written += write_geom(nb)
 
-    return written, int(seq_map.get(owner, -1)), centroid_of(owner)
+    return written
 
 
 def write_layer_island_info_scode(
@@ -142,7 +113,6 @@ def write_layer_island_info_scode(
     z: float,
     out_path: str,
     island_index_base: int = 0,
-    re: bool = True
 ) -> int:
     islands: List[Any] = get_island_geometries(layer)
 
@@ -206,18 +176,8 @@ def write_layer_island_info_scode(
 
     written = 0
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    with open(out_path, "w" if re else "a", encoding="utf-8") as fh:
-        '''
-        _write_header(
-            fh,
-            [
-                ".scode Query 2 – island info by layer",
-                "columns: x1 y1 x2 y2 z power eq_speed total_time island-idx",
-                f"params: z={_format_float(z)} index_base={island_index_base}",
-                "units: mm(mm/s for eq_speed), W(power), s(time)",
-            ],
-        )
-        '''
+    with open(out_path, "w", encoding="utf-8") as fh:
+
         for i, cur in enumerate(islands):
             prev = islands[i - 1] if i > 0 else None
             e_in, e_out = choose_entry_exit(cur, prev)

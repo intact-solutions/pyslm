@@ -268,8 +268,9 @@ class IslandHatcher(Hatcher):
                 # Apply the rotation matrix and translate
                 pos = np.matmul(R, pos.T)
                 pos = pos.T + bboxCentre
-                #pos[0][0] = round(pos[0][0]/2)*2 # HARD CODE: 2 is the island size
-                #pos[0][1] = round(pos[0][1]/2)*2 # HARD CODE: 2 is the island size
+                _island_width = 0.002
+                pos[0][0] = round(pos[0][0]/_island_width)*_island_width # HARD CODE: 2 is the island size
+                pos[0][1] = round(pos[0][1]/_island_width)*_island_width # HARD CODE: 2 is the island size
 
                 island = Island(origin=pos, orientation=theta_h,
                                 islandWidth=self._islandWidth, islandOverlap=self._islandOverlap,

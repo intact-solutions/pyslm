@@ -73,7 +73,7 @@ myHatcher.volumeOffsetHatch = 0
 myHatcher.spotCompensation = 0
 myHatcher.numInnerContours = 0
 myHatcher.numOuterContours = 0
-myHatcher.hatchDistance = 0.1
+myHatcher.hatchDistance = 0.1*SCALE
 myHatcher.hatchSortMethod = hatching.AlternateSort()
 myHatcher.groupIslands = True
 
@@ -94,6 +94,7 @@ def build_zone_parts(base_path: Path):
 		if ply_path.exists():
 			part = pyslm.Part(zone_name)
 			part.setGeometry(str(ply_path))
+			part.scaleFactor = SCALE
 			zone_parts[zone_name] = part
 
 	return zone_parts
@@ -111,12 +112,12 @@ def build_models():
 
 	zone_params = {
 		"high_sensi": {"power": 160.0, "speed": 2.5},
-		"med_sensi": {"power": 200.0, "speed": 1.75},
-		"low_sensi": {"power": 203.0, "speed": 2.5},
-		"base": {"power": 320.0, "speed": 2.5},
-		"boundary": {"power": 201.0, "speed": 2.5},
-		"interface": {"power": 202.0, "speed": 2.5},
-		"contour": {"power": 180.0, "speed": 0.4},
+		"med_sensi": {"power": 160.0, "speed": 1.75},
+		"low_sensi": {"power": 160.0, "speed": 2.5},
+		"base": {"power": 160.0, "speed": 2.5},
+		"boundary": {"power": 160.0, "speed": 2.5},
+		"interface": {"power": 160.0, "speed": 2.5},
+		"contour": {"power": 160.0, "speed": 2.5},
 	}
 
 	model = pyslm.geometry.Model()
@@ -256,57 +257,6 @@ def slice_mesh_to_polygons(stl_path, z_slice, ox, oy):
 
 	return polygons_3d
 
-def point_distance_to_polygons(polygons, point, step=0.001):
-	"""
-	Compute distance from a 3D point [x, y, z] to the boundary
-	of a set of 2D/3D shapely polygons.
-	
-	Returns:
-		distance (float): distance to boundary if inside polygon,
-						  -1 if outside all polygons.
-	"""
-	if not polygons:
-		return -1.0
-
-	# --- Project to XY plane if polygons are 3D ---
-	polys_2d = []
-	for p in polygons:
-		coords = np.array(p.exterior.coords)
-		if coords.shape[1] == 3:
-			ext2d = coords[:, :2]
-			ints2d = [np.array(r.coords)[:, :2] for r in p.interiors]
-			polys_2d.append(Polygon(ext2d, ints2d))
-		else:
-			polys_2d.append(p)
-
-	union_poly = unary_union(polys_2d)
-	
-	if not any(poly.contains(Point(point)) for poly in polygons):
-		return -1.0
-
-	# --- Rasterize the polygon for distance transform ---
-	minx, miny, maxx, maxy = union_poly.bounds
-	nx = max(2, int((maxx - minx) / step) + 1)
-	ny = max(2, int((maxy - miny) / step) + 1)
-
-	xs = np.linspace(minx, maxx, nx)
-	ys = np.linspace(miny, maxy, ny)
-	xx, yy = np.meshgrid(xs, ys)
-	coords_grid = np.column_stack((xx.ravel(), yy.ravel()))
-
-	mask = np.array([union_poly.contains(Point(x, y)) for x, y in coords_grid])
-	mask_img = mask.reshape(ny, nx)
-
-	# --- Distance transform (distance to boundary for inside points) ---
-	dist_img = distance_transform_edt(mask_img) * step
-
-	# --- Sample distance at point location ---
-	ix = np.clip(int((point[0] - minx) / step), 0, nx - 1)
-	iy = np.clip(int((point[1] - miny) / step), 0, ny - 1)
-
-	return float(dist_img[iy, ix])
-
-
 
 def build_distance_field(polygons, step=0.001):
 	"""
@@ -371,49 +321,6 @@ def query_distances(points, dist_img, mask_img, grid_params):
 		else:
 			distances.append(-1.0)
 	return np.array(distances)
-
-def fast_adaptive_sampling(polygon, step=0.005, n_samples=5000, decay=3.0):
-	"""
-	Fast adaptive sampling inside a polygon using a distance field.
-	Density increases near the boundary.
-	
-	Parameters:
-		polygon : shapely.geometry.Polygon
-		step : float — grid spacing (smaller = more precise but slower)
-		n_samples : int — number of points to sample
-		decay : float — exponential decay factor for weighting
-	Returns:
-		np.ndarray (N, 2) sampled points
-	"""
-	# --- Step 1: Rasterize polygon onto a regular grid ---
-	minx, miny, maxx, maxy = polygon.bounds
-	nx = int((maxx - minx) / step)
-	ny = int((maxy - miny) / step)
-
-	xs = np.linspace(minx, maxx, nx)
-	ys = np.linspace(miny, maxy, ny)
-	xx, yy = np.meshgrid(xs, ys)
-	coords = np.vstack((xx.ravel(), yy.ravel())).T
-
-	# Binary mask: 1 inside, 0 outside
-	mask = np.array([polygon.contains(Point(x, y)) for x, y in coords])
-	mask_img = mask.reshape(ny, nx)
-
-	# --- Step 2: Distance transform ---
-	dist_img = distance_transform_edt(mask_img) * step  # convert to world distance
-
-	# --- Step 3: Compute sampling weights ---
-	weights = 1.0 / (dist_img + 1e-4)**2        # inverse-square falloff
-
-	weights[mask_img == 0] = 0  # zero outside polygon
-	weights /= weights.sum()
-
-	# --- Step 4: Sample indices according to weights ---
-	flat_idx = np.random.choice(weights.size, size=n_samples, p=weights.ravel())
-	iy, ix = np.unravel_index(flat_idx, weights.shape)
-	xs_samp, ys_samp = xs[ix], ys[iy]
-
-	return np.column_stack((xs_samp, ys_samp))
 
 def roundN(num,n):
 	return round(num/n)*n
@@ -1129,8 +1036,8 @@ if __name__ == "__main__":
 	OUTDIR = Path(__file__).resolve().parent
 	
 	plot_island_size = 3
-	layer_thickness = 0.1#100e-4
-	hatch_space = 0.1
+	layer_thickness = 0.1*SCALE
+	hatch_space = 0.1*SCALE
 	fname = "ge_bracket_large_1_1"
 	q2_path = OUTDIR / (fname+"_layer.scode")
 	island_path = OUTDIR / (fname+".scode")
@@ -1145,7 +1052,7 @@ if __name__ == "__main__":
 	original_stl = base_path / "ge_bracket_original.stl"
 	solidPart = pyslm.Part("ge_bracket")
 	solidPart.setGeometry(str(original_stl))
-	
+	solidPart.scaleFactor = SCALE
 	solidPart.dropToPlatform()
 	
 
@@ -1166,7 +1073,7 @@ if __name__ == "__main__":
 	n_island = 0
 	all_islands = []
 	for z in np.arange(zmin, zmax, layer_thickness):
-		geomSlice = solidPart.getVectorSlice(z, simplificationFactor=0.1)
+		geomSlice = solidPart.getVectorSlice(z+1e-5, simplificationFactor=0.1)
 		layer = myHatcher.hatch(geomSlice)
 		zone_polys = build_zone_polygons(zone_parts, float(z))
 		classify_layer_geometry(
@@ -1177,7 +1084,6 @@ if __name__ == "__main__":
 			default_zone="base",
 			priority=zone_priority,
 		)
-		#print("write island scode:",z)
 		assign_model(layer, models)
 		islands = get_island_geometries(layer)
 		for islandId,island in enumerate(islands):
@@ -1194,14 +1100,13 @@ if __name__ == "__main__":
 					island_dict[round(z/layer_thickness)]["pts"].append({"coord":[x_center,y_center,z],"island":island,"id":islandId}) 
 					all_islands.append(islandId+n_island)
 		n_island += write_layer_island_info_scode(layer, models, z, str(island_path), island_index_base=n_island, re = False)
-	
+		print("write island scode:",n_island)
+	print(island_dict.keys())
 	#print("islands done")
 	head,points,normals,vs1,vs2,vs3 = BinarySTL(fname+'.STL')
 	#print(points)
 	points = np.vstack([vs1, vs2, vs3])
 	faces = np.arange(len(points)).reshape(-1, 3)
-	[xmin,xmax,ymin,ymax,zmin,zmax] = BoundingBox(points)
-	#print(xmin,xmax,ymin,ymax,zmin,zmax)
 	length = xmax - xmin
 	width = ymax - ymin
 	island_size = ISLAND_WIDTH
@@ -1231,7 +1136,7 @@ if __name__ == "__main__":
 	#print('inside_islands:',inside_islands)
 	
 	# randomly choose some points of interest
-	init_grids1 = generate_grid(xmin,xmax,ymin,ymax,zmin,zmax, island_size, layer_thickness)
+	init_grids1 = generate_grid(xmin,xmax,ymin,ymax,zmin,zmax, 2*island_size, layer_thickness)
 	init_grids2 = generate_grid(xmin,xmax,ymin,ymax,zmin,zmax, 2*island_size, 40*layer_thickness)
 	
 	point_of_interest = {}
@@ -1255,7 +1160,7 @@ if __name__ == "__main__":
 	for z, coords in init_grids2.items():
 		polygons = slice_mesh_to_polygons(fname+'.STL', z, xmin, ymin)
 		# 1️⃣ Build the distance field ONCE for this slice
-		dist_img, mask_img, grid_params = build_distance_field(polygons, step=0.001)
+		dist_img, mask_img, grid_params = build_distance_field(polygons, step=1*SCALE)
 
 		# 3️⃣ Query distances all at once
 		dists = query_distances(coords, dist_img, mask_img, grid_params)
