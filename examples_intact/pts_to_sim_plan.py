@@ -111,13 +111,13 @@ def build_models():
 	contour_bid = 10
 
 	zone_params = {
-		"high_sensi": {"power": 160.0, "speed": 2.5},
-		"med_sensi": {"power": 160.0, "speed": 1.75},
-		"low_sensi": {"power": 160.0, "speed": 2.5},
-		"base": {"power": 160.0, "speed": 2.5},
-		"boundary": {"power": 160.0, "speed": 2.5},
-		"interface": {"power": 160.0, "speed": 2.5},
-		"contour": {"power": 160.0, "speed": 2.5},
+		"high_sensi": {"power": 160.0, "speed": 0.125},
+		"med_sensi": {"power": 160.0, "speed": 0.0875},
+		"low_sensi": {"power": 160.0, "speed": 0.125},
+		"base": {"power": 160.0, "speed": 0.125},
+		"boundary": {"power": 160.0, "speed": 0.125},
+		"interface": {"power": 160.0, "speed": 0.125},
+		"contour": {"power": 160.0, "speed": 0.125},
 	}
 
 	model = pyslm.geometry.Model()

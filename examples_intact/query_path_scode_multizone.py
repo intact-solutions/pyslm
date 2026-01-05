@@ -260,28 +260,27 @@ def main():
 		n_island += len(islands)
 	query_points = np.loadtxt("pts.txt")
 	for p in query_points:
-		idx = np.argmin(np.abs(zs - p[2]))
-		if np.abs(zs[idx] - p[2])>layer_thickness:
+		idx = np.argmin(np.abs(zs - p[2]*1000*SCALE))
+		if np.abs(zs[idx] - p[2]*1000*SCALE)>layer_thickness:
 			continue
 		Z_TARGET = zs[idx]
 		n_z = round(Z_TARGET/layer_thickness)
 		if n_z not in island_dict:
 			continue
-		q1_path = OUTDIR / "gcodes" / str(fname+"_local_query_"+str(round(p[0],6))+"_"+str(round(p[1],6))+"_"+str(round(Z_TARGET,6))+"_fine_laser_path.scode")
+		q1_path = OUTDIR / "gcodes" / str(fname+"_local_query_"+str(round(p[0],6))+"_"+str(round(p[1],6))+"_"+str(round(Z_TARGET/1000,6))+"_fine_laser_path.scode")
 		layers = []
-		models = []
 		param_zs = []
 		bids = []
 		for i in range(n_z-5,n_z+1):
 			if i not in island_dict:
 				continue
 			layers.append(island_dict[i]["layer"])
-			models += assign_model(layers[-1])
+			assign_model(layer, models)
 			param_zs.append(Z_TARGET-(n_z-i)*layer_thickness)
 			bids.append(island_dict[i]["bid"])
-		n1,iid,(px,py) = write_neighborhood_paths_scode(layers, models, p[0], p[1], NEIGHBOR_RADIUS_R, param_zs, str(q1_path), bids)
+		n1,iid,(px,py) = write_neighborhood_paths_scode(layers, models, p[0]*1000, p[1]*1000, NEIGHBOR_RADIUS_R, param_zs, str(q1_path), bids)
 		if n1:
-			print(f"{iid} -1 . {q1_path} {px} {py} {Z_TARGET}")
+			print(f"{iid} -1 . {q1_path} {px/1000} {py/1000} {Z_TARGET/1000}")
 
 	
 
