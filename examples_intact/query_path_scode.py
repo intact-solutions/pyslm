@@ -86,7 +86,7 @@ def assign_model(layer):
 	# Minimal BuildStyle/Model for timing/exports
 	bstyle = pyslm.geometry.BuildStyle()
 	bstyle.bid = 1
-	bstyle.laserSpeed = 2.2  # [mm/s] continuous mode
+	bstyle.laserSpeed = 1.9  # [mm/s] continuous mode
 	bstyle.laserPower = 160.0  # [W]
 	bstyle.jumpSpeed = 5000.0  # [mm/s]
 
@@ -113,7 +113,7 @@ def main():
 		n_island += len(islands)
 		#print("generating slices:",z,round(z/layer_thickness),island_dict.keys(),n_island)
 	print(island_dict.keys())
-	query_points = np.loadtxt("pts_l.txt")
+	query_points = np.loadtxt("pts_r.txt")
 	for p in query_points:
 		idx = np.argmin(np.abs(zs - p[2]))
 		if np.abs(zs[idx] - p[2])>layer_thickness:
@@ -122,7 +122,7 @@ def main():
 		n_z = round(Z_TARGET/layer_thickness)
 		if n_z not in island_dict:
 			continue
-		q1_path = OUTDIR / "gcodes" / str(fname+"_local_query_"+str(round(p[0],6))+"_"+str(round(p[1],6))+"_"+str(round(Z_TARGET,6))+"_fine_laser_path.scode")
+		q1_path = OUTDIR / "gcodes" / "localmodel" / str(fname+"_local_query_"+str(round(p[0],6))+"_"+str(round(p[1],6))+"_"+str(round(Z_TARGET,6))+"_fine_laser_path.scode")
 		layers = []
 		models = []
 		param_zs = []

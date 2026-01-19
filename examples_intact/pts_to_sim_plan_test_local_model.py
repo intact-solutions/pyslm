@@ -1264,47 +1264,40 @@ if __name__ == "__main__":
 		for coord in coords:
 			p = [coord[0],coord[1],z]
 			if z<0.002:
-				if abs(coord[0]+0.05)<0.008 and abs(coord[1])<0.008:
-					if any(poly.contains(Point(p)) for poly in polygons):
-						if (z not in point_of_interest):
-							point_of_interest[z] = [coord]
-						else:
-							point_of_interest[z].append(coord)
+				if (z not in point_of_interest):
+					point_of_interest[z] = [coord]
+				else:
+					point_of_interest[z].append(coord)
 			if z>0.003 and z<0.005:
-				if abs(coord[0]+0.05)<0.008 and abs(coord[1])<0.008:
-					if any(poly.contains(Point(p)) for poly in polygons):
-						if (z not in point_of_interest):
-							point_of_interest[z] = [coord]
-						else:
-							point_of_interest[z].append(coord)
+				if any(poly.contains(Point(p)) for poly in polygons):
+					if (z not in point_of_interest):
+						point_of_interest[z] = [coord]
+					else:
+						point_of_interest[z].append(coord)
 			if z<0.002:
-				if abs(coord[0]-0.025)<0.008 and abs(coord[1])<0.008:
-					if any(poly.contains(Point(p)) for poly in polygons):
-						if (z not in point_of_interest):
-							point_of_interest[z] = [coord]
-						else:
-							point_of_interest[z].append(coord)
+				if any(poly.contains(Point(p)) for poly in polygons):
+					if (z not in point_of_interest):
+						point_of_interest[z] = [coord]
+					else:
+						point_of_interest[z].append(coord)
 			if z>0.003 and z<0.005:
-				if abs(coord[0]-0.025)<0.008 and abs(coord[1])<0.008:
-					if any(poly.contains(Point(p)) for poly in polygons):
-						if (z not in point_of_interest):
-							point_of_interest[z] = [coord]
-						else:
-							point_of_interest[z].append(coord)
+				if any(poly.contains(Point(p)) for poly in polygons):
+					if (z not in point_of_interest):
+						point_of_interest[z] = [coord]
+					else:
+						point_of_interest[z].append(coord)
 			if z>0.032 and z<0.034:
-				if abs(coord[0]+0.02)<0.008 and abs(coord[1]+0.04)<0.008:
-					if any(poly.contains(Point(p)) for poly in polygons):
-						if (z not in point_of_interest):
-							point_of_interest[z] = [coord]
-						else:
-							point_of_interest[z].append(coord)
+				if any(poly.contains(Point(p)) for poly in polygons):
+					if (z not in point_of_interest):
+						point_of_interest[z] = [coord]
+					else:
+						point_of_interest[z].append(coord)
 			if z>0.032 and z<0.034:
-				if abs(coord[0]-0.01)<0.008 and abs(coord[1]+0.04)<0.008:
-					if any(poly.contains(Point(p)) for poly in polygons):
-						if (z not in point_of_interest):
-							point_of_interest[z] = [coord]
-						else:
-							point_of_interest[z].append(coord)
+				if any(poly.contains(Point(p)) for poly in polygons):
+					if (z not in point_of_interest):
+						point_of_interest[z] = [coord]
+					else:
+						point_of_interest[z].append(coord)
 		
 		#else:
 		#	print('loi:',z)
@@ -1509,7 +1502,7 @@ if __name__ == "__main__":
 				all_sim_islands += sim_island_list
 				start_i = min(sim_path_list)
 				end_i = max(sim_path_list)
-				print("sim plan:",start_i,end_i,True,n_list)
+				print(start_i,end_i,"true",n_list)
 	# remove duplicated and out of shape ones
 	#print("remove duplicated",len(all_sim_islands),len(all_sim_paths))
 	all_sim_islands = list(set(all_sim_islands))
@@ -1553,15 +1546,15 @@ if __name__ == "__main__":
 			if len(plot_x)<N_block and idx<len(all_islands)-1:
 				plot_x.append(island_idx)
 			else:
-				print("sim plan:",block_island_begin,island_idx,False,[])
+				print(block_island_begin,island_idx,"false",[])
 				block_island_begin = -1
 				plot_x = [island_idx]
 				block_idx += 1
 		elif len(plot_x) != 0:
 			if block_island_begin>=0:
-				print("sim plan:",block_island_begin,block_island_current,False,[])
+				print(block_island_begin,block_island_current,"false",[])
 				block_island_begin = -1
 			if island_idx in all_sim_islands:
-				print("sim plan:",island_idx,island_idx,False,[])
+				print(island_idx,island_idx,"false",[])
 			plot_x = []
 			block_idx += 1

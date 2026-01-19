@@ -9,7 +9,7 @@ import numpy as np
 
 from .island_utils import IslandIndex, get_island_geometries, compute_layer_geometry_times
 
-SCALE = 0.001
+SCALE = 1
 def _iter_segments(coords: np.ndarray) -> Iterable[Tuple[float, float, float, float]]:
     if coords is None:
         return
@@ -94,10 +94,14 @@ def write_neighborhood_paths_scode(
         bs = _resolve_buildstyle(geom, models)
         power = float(getattr(bs, "laserPower", 0.0) if bs is not None else 0.0)
         speed = float(getattr(bs, "laserSpeed", 0.0) if bs is not None else 0.0)
-        if lidx<len(layers)-1:
-            speed = 100000
-            power = 0.01
+            
         idx = int(seq_map.get(geom, -1))
+        if lidx<len(layers)-1 or idx<owner_idx-1:
+            speed = 100000
+            power = 160
+        elif idx>owner_idx:
+            speed = 100000
+            power = 0
         count = 0
         for x1, y1, x2, y2 in _iter_segments(getattr(geom, "coords", None)) or []:
             fh.write(
@@ -113,6 +117,7 @@ def write_neighborhood_paths_scode(
             neighbors: List[Any] = index.neighbors_for_island(owner) if owner is not None else []
 
             seq_map = _island_sequence_map(layer, base=island_index_base)
+            owner_idx = int(seq_map.get(owner, -1))
 
             '''
             _write_header(
@@ -128,8 +133,6 @@ def write_neighborhood_paths_scode(
             neighbors.append(owner)
             neighbors = sorted(neighbors,key=lambda geom: int(seq_map.get(geom, -1)))
             for nb in neighbors:
-                if lidx == len(layers)-1 and int(seq_map.get(nb, -1)>int(seq_map.get(owner, -1))):
-                    continue
                 written += write_geom(nb)
 
     return written, int(seq_map.get(owner, -1)), centroid_of(owner)
