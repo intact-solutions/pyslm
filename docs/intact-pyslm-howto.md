@@ -124,7 +124,30 @@ Notes:
 - Aggregated output is written to `examples_intact\gebracket_all_layer_islands_global.scode`.
 - The `.scode` format is unchanged; zone-specific scan parameters are applied via `bid`/BuildStyle.
 
-## 6) General tips
+## 6) Zone query API (point -> zone)
+
+The zone-aware workflow exposes a public API for querying which zone a point lies in.
+
+Steps:
+- Load zone geometries as `pyslm.Part`
+- Slice them at a given `z` with `build_zone_polygons()`
+- Query points with `find_zone_at_point()`
+
+Example (GE bracket):
+```powershell
+python examples_intact\query_island_centers_gebracket_zone_aware.py --z 10
+python examples_intact\query_island_centers_gebracket_zone_aware.py --z 10 --plot
+```
+
+Python usage:
+```python
+from pyslm.analysis import build_zone_polygons, find_zone_at_point
+
+zone_polys = build_zone_polygons(zone_parts, z)
+zone_name = find_zone_at_point((x, y), zone_polys, priority=zone_priority, default='base')
+```
+
+## 7) General tips
 
 - Activate env in a new PowerShell window:
 ```powershell
@@ -144,7 +167,7 @@ pip install -e . --upgrade
 python -c "import pyslm; print(pyslm.__file__)"
 ```
 
-## 7) Troubleshooting
+## 8) Troubleshooting
 
 - Build errors for `triangle`, `manifold3d`, or `shapely`:
   - Install Visual C++ Build Tools (C++ workload) and retry `pip install -r requirements.txt`.

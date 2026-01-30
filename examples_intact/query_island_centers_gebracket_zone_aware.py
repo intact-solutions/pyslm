@@ -1,3 +1,19 @@
+"""Query which zone each island center lies in (GE bracket example).
+
+This script demonstrates the public zone-query API:
+- build_zone_polygons(zone_parts, z)   -> shapely MultiPolygons per zone at a layer Z
+- find_zone_at_point((x, y), zone_polys, priority=..., default=...)
+
+It hatches the GE bracket with groupIslands=True, then for each island computes a
+representative point (centroid) and classifies which zone contains that point.
+
+Output:
+  # columns: z island_id cx cy zone
+
+Optional:
+  --plot renders colored circles for island centers (color = zone)
+"""
+
 import sys
 from pathlib import Path
 
@@ -21,6 +37,7 @@ def _base_path() -> Path:
 
 
 def build_part_and_hatcher(model_path: str):
+    # Load the original geometry and configure the IslandHatcher with grouped islands.
     solid_part = pyslm.Part("ge_bracket")
     solid_part.setGeometry(model_path)
     try:
@@ -43,6 +60,7 @@ def build_part_and_hatcher(model_path: str):
 
 
 def build_zone_parts(base_path: Path):
+    # Load zone geometries (PLY) as Parts.
     zone_ply_paths = {
         "high_sensi": base_path / "high_sensi_zone.ply",
         "med_sensi": base_path / "med_sensi_zone.ply",
@@ -63,11 +81,13 @@ def build_zone_parts(base_path: Path):
 
 
 def island_center_xy(geom):
+    # Prefer shapely centroid if available (best for irregular island boundaries).
     boundary_poly = getattr(geom, "boundaryPoly", None)
     if boundary_poly is not None and hasattr(boundary_poly, "centroid"):
         c = boundary_poly.centroid
         return float(c.x), float(c.y)
 
+    # Fallback: centroid of coordinates if boundaryPoly is not present.
     coords = getattr(geom, "coords", None)
     if coords is not None and len(coords) > 0:
         return float(coords[:, 0].mean()), float(coords[:, 1].mean())
@@ -83,6 +103,7 @@ def main():
     p.add_argument("--z-start", type=float, default=None)
     p.add_argument("--z-end", type=float, default=None)
     p.add_argument("--limit", type=int, default=None)
+    # Visualization controls.
     p.add_argument("--plot", action="store_true")
     p.add_argument("--save-plot", type=str, default=None)
     p.add_argument("--no-show", action="store_true")
@@ -102,6 +123,7 @@ def main():
     base_path = _base_path()
     zone_parts = build_zone_parts(base_path)
 
+    # Zone priority matters if zones overlap (first match wins).
     zone_priority = ["interface", "high_sensi", "med_sensi", "boundary", "low_sensi", "base"]
 
     zone_colors = {
@@ -118,12 +140,14 @@ def main():
 
     rows = 0
     for z in zs:
+        # Slice the original part at this Z, hatch it into islands/contours.
         geom_slice = solid_part.getVectorSlice(float(z), simplificationFactor=0.1)
         if not geom_slice:
             continue
 
         layer = my_hatcher.hatch(geom_slice)
 
+        # Slice each zone at the same Z and build shapely MultiPolygons.
         zone_polys = build_zone_polygons(zone_parts, float(z))
 
         plot_x = []
@@ -139,6 +163,7 @@ def main():
                 continue
 
             cx, cy = center
+            # Public API call: point -> zone name.
             zone = find_zone_at_point((cx, cy), zone_polys, priority=zone_priority, default="base")
             island_id = getattr(geom, "islandId", None)
             island_id_str = "" if island_id is None else str(island_id)
