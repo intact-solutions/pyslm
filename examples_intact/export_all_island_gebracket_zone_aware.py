@@ -20,6 +20,10 @@ def _base_path() -> Path:
 
 
 def build_part_and_hatcher(model_path: str):
+    # Loads the main part geometry and configures an IslandHatcher.
+    # The hatcher produces a `Layer` whose geometry contains:
+    # - islands (subType == 'island')
+    # - inner/outer contours (subType == 'inner'/'outer')
     solid_part = pyslm.Part("ge_bracket")
     solid_part.setGeometry(model_path)
     try:
@@ -43,6 +47,8 @@ def build_part_and_hatcher(model_path: str):
 
 def build_zone_parts(base_path: Path):
     zone_ply_paths = {
+        # Zone meshes are used only for classification.
+        # They are sliced at each Z to produce shapely polygons for point-in-polygon queries.
         "high_sensi": base_path / "high_sensi_zone.ply",
         "med_sensi": base_path / "med_sensi_zone.ply",
         "low_sensi": base_path / "low_sensi_zone.ply",
@@ -62,6 +68,8 @@ def build_zone_parts(base_path: Path):
 
 
 def build_models():
+    # BuildStyles define scan parameters and are selected by `bid`.
+    # The zone-aware workflow sets `geom.bid` for each island based on which zone contains its centroid.
     zone_bids = {
         "high_sensi": 1,
         "med_sensi": 2,
@@ -73,13 +81,13 @@ def build_models():
     contour_bid = 10
 
     zone_params = {
-        "high_sensi": {"power": 200.0, "speed": 2500.0},
-        "med_sensi": {"power": 200.0, "speed": 1750.0},
-        "low_sensi": {"power": 200.0, "speed": 2500.0},
-        "base": {"power": 200.0, "speed": 2500.0},
-        "boundary": {"power": 200.0, "speed": 2500.0},
-        "interface": {"power": 200.0, "speed": 2500.0},
-        "contour": {"power": 180.0, "speed": 400.0},
+        "high_sensi": {"power": 100.0, "speed": 2500.0},
+        "med_sensi": {"power": 110.0, "speed": 1750.0},
+        "low_sensi": {"power": 120.0, "speed": 2500.0},
+        "base": {"power": 130.0, "speed": 2500.0},
+        "boundary": {"power": 140.0, "speed": 2500.0},
+        "interface": {"power": 150.0, "speed": 2500.0},
+        "contour": {"power": 160.0, "speed": 400.0},
     }
 
     model = pyslm.geometry.Model()
@@ -104,6 +112,8 @@ def build_models():
 
 
 def assign_model(layer, models):
+    # SCODE export resolves scan parameters by (mid, bid) -> BuildStyle.
+    # `classify_layer_geometry()` assigns `bid`; we must also assign `mid` consistently.
     for g in getattr(layer, "geometry", []) or []:
         g.mid = models[0].mid
 
@@ -143,6 +153,9 @@ def main():
     base = 0
 
     if args.single_file:
+        # Aggregate mode:
+        # - Writes one file containing all layers
+        # - Uses global island indexing so island IDs are unique across layers
         agg_path = outdir / "gebracket_all_layer_islands_global.scode"
         with open(agg_path, "w", encoding="utf-8") as fh:
             fh.write("# .scode Query 2 – island info by layer (global aggregation)\n")
@@ -159,6 +172,7 @@ def main():
                 layer = my_hatcher.hatch(geom_slice)
 
                 zone_polys = build_zone_polygons(zone_parts, float(z))
+                # In-place classification assigns geom.zoneName and geom.bid.
                 classify_layer_geometry(
                     layer,
                     zone_polys,
@@ -197,6 +211,7 @@ def main():
         layer = my_hatcher.hatch(geom_slice)
 
         zone_polys = build_zone_polygons(zone_parts, float(z))
+        # In-place classification assigns geom.zoneName and geom.bid.
         classify_layer_geometry(
             layer,
             zone_polys,
@@ -209,6 +224,7 @@ def main():
 
         out_path = outdir / f"gebracket_layer_islands_L{L}.scode"
         if args.global_island_indexing:
+            # Global indexing means island-idx is unique across layers (useful for downstream joins).
             n = write_layer_island_info_scode(layer, models, float(z), str(out_path), island_index_base=base)
             if n == 0:
                 out_path.unlink(missing_ok=True)
@@ -217,6 +233,7 @@ def main():
                 print(f"L{L}: wrote {n} islands to {out_path}")
                 base += n
         else:
+            # Per-layer indexing restarts island-idx at 0 for each layer.
             n = write_layer_island_info_scode(layer, models, float(z), str(out_path), island_index_base=0)
             if n == 0:
                 out_path.unlink(missing_ok=True)

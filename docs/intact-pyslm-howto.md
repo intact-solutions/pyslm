@@ -147,6 +147,96 @@ zone_polys = build_zone_polygons(zone_parts, z)
 zone_name = find_zone_at_point((x, y), zone_polys, priority=zone_priority, default='base')
 ```
 
+## 6a) Zone-aware path planning (zones -> scan parameters -> SCODE)
+
+This section documents the full zone-aware workflow used by:
+- `examples_intact\export_scode_gebracket_zone_aware.py`
+- `examples_intact\export_all_island_gebracket_zone_aware.py`
+
+The goal is to export `.scode` files where **each island (and contour) carries zone-specific scan parameters**.
+
+### Conceptual model
+
+The zone-aware pipeline connects four concepts:
+
+1) **Zone geometry** (meshes per zone)
+- Each zone is a separate mesh (e.g., `high_sensi_zone.ply`, `boundary_zone.ply`).
+- At a given layer height `z`, each zone mesh is sliced into shapely polygons via `build_zone_polygons(zone_parts, z)`.
+
+2) **Island geometry** (output of island hatching)
+- `IslandHatcher.hatch(slice)` produces a `Layer`.
+- `layer.geometry` contains many geometry items, including:
+  - islands (`subType == 'island'`)
+  - contours (`subType == 'inner'` / `subType == 'outer'`)
+
+3) **Classification** (assign a zone + buildstyle ID)
+- `classify_layer_geometry(layer, zone_polys, zone_bids, contour_bid=..., priority=...)` modifies `layer.geometry` in place.
+- For each island, it:
+  - finds the zone containing the island centroid (with optional overlap priority)
+  - sets `geom.zoneName` and `geom.bid` (BuildStyle ID)
+- For contours, it assigns `geom.bid = contour_bid`.
+
+4) **BuildStyle mapping** (bid -> power/speed)
+- SCODE export resolves scan parameters using `(mid, bid) -> BuildStyle`.
+- This means every `geom` must have:
+  - `geom.bid` (assigned by `classify_layer_geometry`)
+  - `geom.mid` (you assign this; examples use `mid = 1`)
+- Your `models` list must contain a `Model(mid=...)` with `BuildStyle(bid=...)` entries matching the zone bids.
+
+### Run the GE bracket zone-aware export (single layer)
+
+```powershell
+python examples_intact\export_scode_gebracket_zone_aware.py
+```
+
+Outputs (written into `examples_intact\`):
+- `gebracket_neighborhood_paths_L0_x{X}_y{Y}_r{R}.scode`
+  - Query 1: hatch segments for a chosen “owner” island plus neighbors within radius `R`
+  - Columns include `power` and `speed` resolved from the island’s assigned zone
+- `gebracket_layer_islands_L0.scode`
+  - Query 2: one row per island with entry/exit proxy points and timing summary
+  - Columns include `power` resolved from the island’s assigned zone
+
+### Run the GE bracket zone-aware export (all layers)
+
+```powershell
+# Per-layer files with per-layer indexing (default)
+python examples_intact\export_all_island_gebracket_zone_aware.py
+
+# Per-layer files with global indexing across layers
+python examples_intact\export_all_island_gebracket_zone_aware.py --global-island-indexing
+
+# Single aggregated file containing all islands (global indexing)
+python examples_intact\export_all_island_gebracket_zone_aware.py --single-file
+```
+
+Notes:
+- Global indexing makes `island-idx` unique across layers, which is usually easier for downstream analysis.
+- Empty layers are skipped.
+
+### Adapting to your own part
+
+To use this workflow on a new model:
+
+1) **Provide the main part geometry**
+- Load your part as a `pyslm.Part` and slice it with `getVectorSlice(z)`.
+
+2) **Provide one mesh per zone**
+- Create meshes for each zone region (STL/PLY) in the same coordinate system as the main part.
+- Load each as a `pyslm.Part` and pass them into `build_zone_polygons(zone_parts, z)`.
+
+3) **Define zone priority and zone bids**
+- Define `zone_priority` to resolve overlaps deterministically.
+- Define `zone_bids` mapping `zone_name -> bid`.
+
+4) **Create a `Model` with matching BuildStyles**
+- For every `bid` that may appear on geometry, ensure there is a `BuildStyle(bid=...)`.
+- Assign `geom.mid` for every geometry in the layer to match `model.mid`.
+
+5) **Export**
+- Use `write_neighborhood_paths_scode(...)` for neighborhood segment dumps.
+- Use `write_layer_island_info_scode(...)` for per-island row exports.
+
 ## 7) General tips
 
 - Activate env in a new PowerShell window:

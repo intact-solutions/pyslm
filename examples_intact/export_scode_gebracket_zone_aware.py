@@ -28,6 +28,7 @@ def build_layer(z: float):
     base_path = _base_path()
 
     original_stl = base_path / "ge_bracket_original.stl"
+    # Main part geometry: this is what gets sliced and hatched.
     solid_part = pyslm.Part("ge_bracket")
     solid_part.setGeometry(str(original_stl))
     try:
@@ -36,6 +37,9 @@ def build_layer(z: float):
         pass
 
     zone_ply_paths = {
+        # Zone geometries are separate meshes that define spatial regions (in XY at each Z).
+        # At a given Z slice, each zone mesh becomes a shapely polygon/multipolygon.
+        # Those polygons are used to classify hatch islands into zones.
         "high_sensi": base_path / "high_sensi_zone.ply",
         "med_sensi": base_path / "med_sensi_zone.ply",
         "low_sensi": base_path / "low_sensi_zone.ply",
@@ -51,6 +55,7 @@ def build_layer(z: float):
             part.setGeometry(str(p))
             zone_parts[name] = part
 
+    # Slice the solid part at Z and generate island hatch geometry.
     geom_slice = solid_part.getVectorSlice(float(z), simplificationFactor=0.1)
 
     my_hatcher = hatching.IslandHatcher()
@@ -66,9 +71,12 @@ def build_layer(z: float):
 
     layer = my_hatcher.hatch(geom_slice)
 
+    # Slice all zone meshes at the same Z to build zone polygons for classification.
     zone_polys = build_zone_polygons(zone_parts, float(z))
 
     zone_bids = {
+        # Mapping from zone name -> BuildStyle ID (bid).
+        # The bid is later used to select laser parameters (power/speed) in `build_models()`.
         "high_sensi": 1,
         "med_sensi": 2,
         "low_sensi": 3,
@@ -77,6 +85,7 @@ def build_layer(z: float):
         "interface": 6,
     }
     contour_bid = 10
+    # Zones can overlap; priority controls which zone wins when multiple polygons contain the island centroid.
     zone_priority = ["interface", "high_sensi", "med_sensi", "boundary", "low_sensi", "base"]
 
     classify_layer_geometry(
@@ -88,6 +97,8 @@ def build_layer(z: float):
         priority=zone_priority,
     )
 
+    # SCODE export resolves scan parameters by (mid, bid) -> BuildStyle.
+    # `classify_layer_geometry()` sets `bid` per island/contour; we also need a `mid` on each geometry.
     for g in getattr(layer, "geometry", []) or []:
         g.mid = 1
 
@@ -95,14 +106,16 @@ def build_layer(z: float):
 
 
 def build_models(zone_bids, contour_bid: int):
+    # Example laser parameters per zone. These values are for demonstration and can be replaced.
+    # The important part is: BuildStyle.bid matches the `geom.bid` assigned in `classify_layer_geometry()`.
     zone_params = {
-        "high_sensi": {"power": 200.0, "speed": 2500.0},
-        "med_sensi": {"power": 200.0, "speed": 1750.0},
-        "low_sensi": {"power": 200.0, "speed": 2500.0},
-        "base": {"power": 200.0, "speed": 2500.0},
-        "boundary": {"power": 200.0, "speed": 2500.0},
-        "interface": {"power": 200.0, "speed": 2500.0},
-        "contour": {"power": 180.0, "speed": 400.0},
+        "high_sensi": {"power": 100.0, "speed": 2500.0},
+        "med_sensi": {"power": 110.0, "speed": 1750.0},
+        "low_sensi": {"power": 120.0, "speed": 2500.0},
+        "base": {"power": 130.0, "speed": 2500.0},
+        "boundary": {"power": 140.0, "speed": 2500.0},
+        "interface": {"power": 150.0, "speed": 2500.0},
+        "contour": {"power": 160.0, "speed": 400.0},
     }
 
     model = pyslm.geometry.Model()
@@ -130,6 +143,8 @@ def main():
     _, layer, (zone_bids, contour_bid) = build_layer(Z_TARGET)
     models = build_models(zone_bids, contour_bid)
 
+    # Query 1 needs an (x, y) point to define the "owner" island.
+    # This example picks a deterministic island (index 69 if present) and uses a representative point.
     islands = get_island_geometries(layer)
     if islands:
         owner_idx = min(69, len(islands) - 1)
@@ -147,10 +162,12 @@ def main():
     else:
         ox, oy = 0.0, 0.0
 
+    # Query 1: write hatch segments for the island containing (ox, oy) plus its neighbors within radius R.
     q1_path = OUTDIR / f"gebracket_neighborhood_paths_L0_x{ox:.3f}_y{oy:.3f}_r{NEIGHBOR_RADIUS_R:.2f}.scode"
     n1 = write_neighborhood_paths_scode(layer, models, ox, oy, NEIGHBOR_RADIUS_R, Z_TARGET, str(q1_path), island_index_base=0)
     print(f"Query1: wrote {n1} segments to {q1_path}")
 
+    # Query 2: write one row per island with entry/exit proxy points + timing summary.
     q2_path = OUTDIR / "gebracket_layer_islands_L0.scode"
     n2 = write_layer_island_info_scode(layer, models, Z_TARGET, str(q2_path), island_index_base=0)
     print(f"Query2: wrote {n2} island rows to {q2_path}")
