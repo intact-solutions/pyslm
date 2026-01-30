@@ -1,4 +1,3 @@
-test
 # Intact-Pyslm Quick Start (Windows)
 
 Follow these steps in Windows PowerShell to install into a virtual environment and run the examples.
@@ -125,7 +124,7 @@ Notes:
 - Aggregated output is written to `examples_intact\gebracket_all_layer_islands_global.scode`.
 - The `.scode` format is unchanged; zone-specific scan parameters are applied via `bid`/BuildStyle.
 
-## 6) Genera tips
+## 6) General tips
 
 - Activate env in a new PowerShell window:
 ```powershell
@@ -151,4 +150,18 @@ python -c "import pyslm; print(pyslm.__file__)"
   - Install Visual C++ Build Tools (C++ workload) and retry `pip install -r requirements.txt`.
 - The examples import the wrong PySLM (e.g., global install):
   - Ensure the virtual environment is activated and re-run `pip install -e .`.
+
+- `ModuleNotFoundError` (e.g., `No module named 'networkx'`):
+  - Confirm you're using the venv Python:
+```powershell
+where python
+python -c "import sys; print(sys.executable)"
+python -m pip -V
+```
+  - Reinstall dependencies into the active venv:
+```powershell
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+python -m pip install -e .
+```
 
