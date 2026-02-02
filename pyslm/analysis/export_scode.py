@@ -9,7 +9,7 @@ import numpy as np
 
 from .island_utils import IslandIndex, get_island_geometries, compute_layer_geometry_times
 
-SCALE = 1
+SCALE = 0.001
 def _iter_segments(coords: np.ndarray) -> Iterable[Tuple[float, float, float, float]]:
     if coords is None:
         return

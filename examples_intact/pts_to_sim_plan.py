@@ -111,13 +111,12 @@ def build_models():
 	contour_bid = 10
 
 	zone_params = {
-		"high_sensi": {"power": 160.0, "speed": 0.125},
-		"med_sensi": {"power": 160.0, "speed": 0.0875},
-		"low_sensi": {"power": 160.0, "speed": 0.125},
-		"base": {"power": 160.0, "speed": 0.125},
-		"boundary": {"power": 160.0, "speed": 0.125},
-		"interface": {"power": 160.0, "speed": 0.125},
-		"contour": {"power": 160.0, "speed": 0.125},
+		"high_sensi": {"power": 150.0, "speed": 0.1},
+		"med_sensi": {"power": 160.0, "speed": 0.095},
+		"low_sensi": {"power": 170.0, "speed": 0.09},
+		"base": {"power": 180.0, "speed": 0.085},
+		"boundary": {"power": 190.0, "speed": 0.08},
+		"interface": {"power": 200.0, "speed": 0.075},
 	}
 
 	model = pyslm.geometry.Model()
@@ -133,8 +132,6 @@ def build_models():
 
 	bs_contour = pyslm.geometry.BuildStyle()
 	bs_contour.bid = int(contour_bid)
-	bs_contour.laserPower = float(zone_params["contour"]["power"])
-	bs_contour.laserSpeed = float(zone_params["contour"]["speed"])
 	bs_contour.jumpSpeed = 5000.0
 	model.buildStyles.append(bs_contour)
 
