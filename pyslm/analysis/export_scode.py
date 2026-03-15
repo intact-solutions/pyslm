@@ -64,6 +64,41 @@ def _write_header(fh, lines: List[str]) -> None:
     for line in lines:
         fh.write(f"# {line}\n")
 
+def island_to_random_power_speed(input_int: int, power: float, speed: float) -> [int,int]:
+    r1 = 2*((input_int * 1234567 + 987654321) % 1756121)/1756121-1
+    r2 = 2*((input_int * 2183181 + 349293103) % 3438243)/3438243-1
+    return [power*(1+r1*0.01),speed*(1+r2*0.01)]
+
+def pos_to_power_speed(x: float, y: float, z: float, power: float, speed: float, bbox:[float, float, float, float, float, float] = [-0.09567338957373658, -0.06541411785034108, -4.718713626061803e-09, 0.08536702478482584, 0.038807186772294854, 0.06212175750732427]):
+    #return [power,speed] 
+    x_13 = bbox[0] + 1/3*(bbox[3] - bbox[0])
+    x_23 = bbox[0] + 2/3*(bbox[3] - bbox[0])
+    y_13 = bbox[1] + 1/3*(bbox[4] - bbox[1])
+    y_23 = bbox[1] + 2/3*(bbox[4] - bbox[1])
+    z_13 = bbox[2] + 1/3*(bbox[5] - bbox[2])
+    z_23 = bbox[2] + 2/3*(bbox[5] - bbox[2])
+    cube_size = 0.02
+    cube_height = 0.01
+    offset = 0.05
+    if abs(x - x_13) < cube_size and abs(y - y_13) < cube_size and abs(z - z_13) < cube_height:
+        return [power*(1-offset),speed*(1-offset)]
+    elif abs(x - x_23) < cube_size and abs(y - y_13) < cube_size and abs(z - z_13) < cube_height:
+        return [power*(1+offset),speed*(1-offset)]
+    elif abs(x - x_23) < cube_size and abs(y - y_23) < cube_size and abs(z - z_13) < cube_height:
+        return [power*(1+offset),speed*(1+offset)]
+    elif abs(x - x_13) < cube_size and abs(y - y_23) < cube_size and abs(z - z_13) < cube_height:
+        return [power*(1-offset),speed]
+    elif abs(x - x_13) < cube_size and abs(y - y_13) < cube_size and abs(z - z_23) < cube_height:
+        return [power*(1-offset),speed*(1-offset)]
+    elif abs(x - x_23) < cube_size and abs(y - y_13) < cube_size and abs(z - z_23) < cube_height:
+        return [power,speed*(1-offset)]
+    elif abs(x - x_23) < cube_size and abs(y - y_23) < cube_size and abs(z - z_23) < cube_height:
+        return [power,speed]
+    elif abs(x - x_13) < cube_size and abs(y - y_23) < cube_size and abs(z - z_23) < cube_height:
+        return [power*(1-offset),speed]
+    else:
+        return [power,speed]
+
 def write_neighborhood_paths_scode(
     layers: List[Any],
     models: List[Any],
@@ -102,6 +137,12 @@ def write_neighborhood_paths_scode(
         elif idx>owner_idx:
             speed = 100000
             power = 0
+        else:
+            #[power,speed] = island_to_random_power_speed(idx,power,speed)
+            x,y = centroid_of(geom)
+            [power,speed] = pos_to_power_speed(x,y,z,power,speed)
+            #if (power != 230 and speed != 1):
+            #    print(power,speed)
         count = 0
         for x1, y1, x2, y2 in _iter_segments(getattr(geom, "coords", None)) or []:
             fh.write(
@@ -224,9 +265,11 @@ def write_layer_island_info_scode(
             eq_speed = float(total_len / total_time) if total_time > 0.0 else 0.0
 
             idx = int(seq_map.get(cur, -1))
+            #[power,eq_speed] = island_to_random_power_speed(idx,power,eq_speed)
+            [power,eq_speed] = pos_to_power_speed(0.5*(e_in[0]+e_out[0]),0.5*(e_in[1]+e_out[1]),z,power,eq_speed)
             fh.write(
                 f"{_format_float(e_in[0]*SCALE)} {_format_float(e_in[1]*SCALE)} {_format_float(e_out[0]*SCALE)} {_format_float(e_out[1]*SCALE)} "
-                f"{_format_float(z*SCALE)} {_format_float(power)} {_format_float(round(eq_speed,2))} {_format_float(total_time)} {idx}\n"
+                f"{_format_float(z*SCALE)} {_format_float(power)} {_format_float(round(eq_speed,5))} {_format_float(total_time)} {idx}\n"
             )
             written += 1
 

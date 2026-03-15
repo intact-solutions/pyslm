@@ -21,7 +21,6 @@ if str(_repo_root) not in sys.path:
 
 import pyslm
 from pyslm.analysis.export_scode import write_layer_island_info_scode
-from pyslm.analysis.zone_utils import build_zone_polygons, classify_layer_geometry
 
 # Ensure local repo import without needing PYTHONPATH set externally
 _repo_root = Path(__file__).resolve().parents[1]  # points to repo root containing 'pyslm/'
@@ -47,9 +46,9 @@ from pyslm.analysis.island_utils import (
 # Config
 # ----------------------------
 Z_TARGET = 14.99
-SCALE = 1
+SCALE = 0.001
 SCAN_CONTOUR_FIRST = False  # available if needed by your IslandHatcher setup
-ISLAND_WIDTH = 2
+ISLAND_WIDTH = 0.006
 NEIGHBOR_RADIUS_R = 0.8 * ISLAND_WIDTH
 OWNER_SEQUENCE_INDEX_1BASED = 23  # similar selection strategy to test_spatial_lookup (choose a specific island)
 
@@ -73,88 +72,142 @@ myHatcher.volumeOffsetHatch = 0
 myHatcher.spotCompensation = 0
 myHatcher.numInnerContours = 0
 myHatcher.numOuterContours = 0
-myHatcher.hatchDistance = 0.1*SCALE
+myHatcher.hatchDistance = 1e-4
 myHatcher.hatchSortMethod = hatching.AlternateSort()
 myHatcher.groupIslands = True
+def gen_island_slices(filename,layer_thickness):
+	solidPart = pyslm.Part(filename)
+	solidPart.setGeometry(filename+'.STL')
+	
+	#solidPart.dropToPlatform()
+	solidPart.origin[0] = 0.0
+	solidPart.origin[1] = 0.0
+	solidPart.scaleFactor = SCALE
+	solidPart.rotation = [0, 0.0, np.pi]
+	
 
+	[xmin,ymin,zmin,xmax,ymax,zmax] = solidPart.boundingBox
+	print(xmin,ymin,zmin,xmax,ymax,zmax)
+	geomSlices = []
+	layers = []
+	zs = []
+	for z in np.arange(zmin, zmax, layer_thickness):
+		geomSlice = solidPart.getVectorSlice(z)
+		#print(z)
+		layer = myHatcher.hatch(geomSlice)
+		geomSlices.append(geomSlice)
+		layers.append(layer)
+		zs.append(z)
+	return geomSlices, layers, zs, [xmin,ymin,zmin,xmax,ymax,zmax] 
 
+def build_minimal_models():
+	bstyle = pyslm.geometry.BuildStyle()
+	bstyle.bid = 1
+	bstyle.laserSpeed = 0.0167
+	bstyle.laserPower = 320
+	bstyle.jumpSpeed = 5000.0
 
-def build_zone_parts(base_path: Path):
-	zone_ply_paths = {
-		"high_sensi": base_path / "high_sensi_zone.ply",
-		"med_sensi": base_path / "med_sensi_zone.ply",
-		"low_sensi": base_path / "low_sensi_zone.ply",
-		"base": base_path / "base_zone.ply",
-		"boundary": base_path / "boundary_zone.ply",
-		"interface": base_path / "interface_zone.ply",
-	}
-
-	zone_parts = {}
-	for zone_name, ply_path in zone_ply_paths.items():
-		if ply_path.exists():
-			part = pyslm.Part(zone_name)
-			part.setGeometry(str(ply_path))
-			part.scaleFactor = SCALE
-			zone_parts[zone_name] = part
-
-	return zone_parts
-
-def build_models():
-	zone_bids = {
-		"high_sensi": 1,
-		"med_sensi": 2,
-		"low_sensi": 3,
-		"base": 4,
-		"boundary": 5,
-		"interface": 6,
-	}
-	contour_bid = 10
-
-	'''
-	"high_sensi": {"power": 167.62716191366522, "speed": 2.0634244843893508/20},
-	"med_sensi": {"power": 173.18665276441982, "speed": 2.0174683731155607/20},
-	"low_sensi": {"power": 161.93536682904238, "speed": 2.0007891664251285/20},
-	"base": {"power": 152.0, "speed": 2.0785361191810288/20},
-	"boundary": {"power": 161.03299725520932, "speed": 2.017819175094538/20},
-	"interface": {"power": 159.3637716533559, "speed": 2.0880269537424376/20},
-	'''
-	zone_params = {
-		"high_sensi": {"power": 160, "speed": 2/20},
-		"med_sensi": {"power": 160, "speed": 2/20},
-		"low_sensi": {"power": 160, "speed": 2/20},
-		"base": {"power": 160, "speed": 2/20},
-		"boundary": {"power": 160, "speed": 2/20},
-		"interface": {"power": 160, "speed": 2/20},
-	}
-        
 	model = pyslm.geometry.Model()
 	model.mid = 1
+	model.buildStyles.append(bstyle)
 
-	for zone_name, bid in zone_bids.items():
-		bs = pyslm.geometry.BuildStyle()
-		bs.bid = int(bid)
-		bs.laserPower = float(zone_params[zone_name]["power"])
-		bs.laserSpeed = float(zone_params[zone_name]["speed"])
-		bs.jumpSpeed = 5000.0
-		model.buildStyles.append(bs)
-
-	bs_contour = pyslm.geometry.BuildStyle()
-	bs_contour.bid = int(contour_bid)
-	bs_contour.jumpSpeed = 5000.0
-	model.buildStyles.append(bs_contour)
-
-	return [model], zone_bids, contour_bid
+	return [model]
+def assign_model(layer):
+    for g in getattr(layer, 'geometry', []) or []:
+        g.mid = models[0].mid
+        g.bid = models[0].buildStyles[0].bid
 
 
-def assign_model(layer, models):
-	for g in getattr(layer, "geometry", []) or []:
-		g.mid = models[0].mid
+def pick_owner_and_point(island_geoms):
+	"""Pick an owner island by sequence index (1-based), then use its robust interior point.
+	Fallback to last island if index exceeds length.
+	Returns (owner_geom, (ox, oy)).
+	"""
+	if not island_geoms:
+		return None, (0.0, 0.0)
+	idx0 = max(1, OWNER_SEQUENCE_INDEX_1BASED) - 1
+	owner = island_geoms[idx0] if idx0 < len(island_geoms) else island_geoms[-1]
+	poly = getattr(owner, 'boundaryPoly', None)
+	if poly is None:
+		return owner, (0.0, 0.0)
+	# Use Shapely representative point (always inside polygon)
+	ox, oy = poly.representative_point().coords[0]
+	return owner, (ox, oy)
 
+def draw_figure1(ax, geomSlice, layer, models, owner, neighbors, owner_point, time_by_geom):
+	ax.set_title('Figure 1: Sequence-colored islands + scan paths (owner & neighbors)')
+	ax.axis('equal')
 
-def _base_path() -> Path:
-	return _repo_root / "geometry_intact" / "zone_aware_island_gebracket"
+	# Base: plot slice boundary
+	try:
+		pyslm.visualise.plotPolygon(geomSlice, handle=(plt.gcf(), ax), lineColor='k', lineWidth=0.5)
+	except Exception:
+		pass
 
+	islands = get_island_geometries(layer)
+	cmap = mpl.colormaps.get_cmap('coolwarm')
+	num_islands = len(islands)
+	neighbor_set = set(neighbors)
 
+	# Draw island outlines colored by sequence; outlines only (no fill)
+	for idx, gi in enumerate(islands, start=1):
+		poly = getattr(gi, 'boundaryPoly', None)
+		if poly is None:
+			continue
+		x, y = poly.exterior.xy
+		# Outline color by normalized sequence
+		t = 0.5 if num_islands <= 1 else (idx - 1) / (num_islands - 1)
+		line_color = cmap(t)
+
+		# Always outline; no fill for Level 1 figure
+		lw = 1.2 if gi is owner else (1.0 if gi in neighbor_set else 0.9)
+		pyslm.visualise.plotPolygon([np.vstack([x, y]).T], handle=(plt.gcf(), ax), lineColor=line_color, lineWidth=lw)
+
+		# Sequence label (small grey) slightly above centroid
+		cx, cy = poly.centroid.coords[0]
+		ax.text(cx, cy + 0.25, str(idx), color=COLOR_SEQ_LABEL, fontsize=4, ha='center', va='center')
+
+		# Timing annotation further below the centroid to avoid overlap; add light bbox for readability
+		t_island = time_by_geom.get(gi, None)
+		if t_island is not None:
+			dy = 0.8  # increased offset in mm to avoid overlap with sequence index
+			txt_color = COLOR_SEQ_LABEL
+			if gi is owner:
+				txt_color = COLOR_OWNER_LINE
+			elif gi in neighbor_set:
+				txt_color = COLOR_NEIGHBOR_LINE
+			ax.text(
+				cx,
+				cy - dy,
+				f"{t_island:.3f}s",
+				fontsize=FONT_ISLAND_TIME,
+				color=txt_color,
+				ha='center',
+				va='center',
+				bbox=dict(facecolor='white', edgecolor='none', alpha=0.6, pad=0.5),
+			)
+
+	# Draw scan paths for owner + neighbors only
+	def draw_hatch_paths(geom, color):
+		coords = getattr(geom, 'coords', None)
+		if coords is None:
+			return
+		try:
+			segs = coords.reshape(-1, 2, 2)
+		except Exception:
+			return
+		for p in segs:
+			ax.plot([p[0,0], p[1,0]], [p[0,1], p[1,1]], color=color, linewidth=0.8, alpha=0.9)
+
+	if owner is not None:
+		draw_hatch_paths(owner, COLOR_OWNER_LINE)
+	for nb in neighbors:
+		draw_hatch_paths(nb, COLOR_NEIGHBOR_LINE)
+
+	# Mark point of interest
+	if owner_point is not None:
+		ox, oy = owner_point
+		ax.plot([ox], [oy], marker='o', markersize=3, color='black')
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
@@ -262,6 +315,57 @@ def slice_mesh_to_polygons(stl_path, z_slice, ox, oy):
 
 	return polygons_3d
 
+def point_distance_to_polygons(polygons, point, step=0.001):
+	"""
+	Compute distance from a 3D point [x, y, z] to the boundary
+	of a set of 2D/3D shapely polygons.
+	
+	Returns:
+		distance (float): distance to boundary if inside polygon,
+						  -1 if outside all polygons.
+	"""
+	if not polygons:
+		return -1.0
+
+	# --- Project to XY plane if polygons are 3D ---
+	polys_2d = []
+	for p in polygons:
+		coords = np.array(p.exterior.coords)
+		if coords.shape[1] == 3:
+			ext2d = coords[:, :2]
+			ints2d = [np.array(r.coords)[:, :2] for r in p.interiors]
+			polys_2d.append(Polygon(ext2d, ints2d))
+		else:
+			polys_2d.append(p)
+
+	union_poly = unary_union(polys_2d)
+	
+	if not any(poly.contains(Point(point)) for poly in polygons):
+		return -1.0
+
+	# --- Rasterize the polygon for distance transform ---
+	minx, miny, maxx, maxy = union_poly.bounds
+	nx = max(2, int((maxx - minx) / step) + 1)
+	ny = max(2, int((maxy - miny) / step) + 1)
+
+	xs = np.linspace(minx, maxx, nx)
+	ys = np.linspace(miny, maxy, ny)
+	xx, yy = np.meshgrid(xs, ys)
+	coords_grid = np.column_stack((xx.ravel(), yy.ravel()))
+
+	mask = np.array([union_poly.contains(Point(x, y)) for x, y in coords_grid])
+	mask_img = mask.reshape(ny, nx)
+
+	# --- Distance transform (distance to boundary for inside points) ---
+	dist_img = distance_transform_edt(mask_img) * step
+
+	# --- Sample distance at point location ---
+	ix = np.clip(int((point[0] - minx) / step), 0, nx - 1)
+	iy = np.clip(int((point[1] - miny) / step), 0, ny - 1)
+
+	return float(dist_img[iy, ix])
+
+
 
 def build_distance_field(polygons, step=0.001):
 	"""
@@ -326,6 +430,49 @@ def query_distances(points, dist_img, mask_img, grid_params):
 		else:
 			distances.append(-1.0)
 	return np.array(distances)
+
+def fast_adaptive_sampling(polygon, step=0.005, n_samples=5000, decay=3.0):
+	"""
+	Fast adaptive sampling inside a polygon using a distance field.
+	Density increases near the boundary.
+	
+	Parameters:
+		polygon : shapely.geometry.Polygon
+		step : float — grid spacing (smaller = more precise but slower)
+		n_samples : int — number of points to sample
+		decay : float — exponential decay factor for weighting
+	Returns:
+		np.ndarray (N, 2) sampled points
+	"""
+	# --- Step 1: Rasterize polygon onto a regular grid ---
+	minx, miny, maxx, maxy = polygon.bounds
+	nx = int((maxx - minx) / step)
+	ny = int((maxy - miny) / step)
+
+	xs = np.linspace(minx, maxx, nx)
+	ys = np.linspace(miny, maxy, ny)
+	xx, yy = np.meshgrid(xs, ys)
+	coords = np.vstack((xx.ravel(), yy.ravel())).T
+
+	# Binary mask: 1 inside, 0 outside
+	mask = np.array([polygon.contains(Point(x, y)) for x, y in coords])
+	mask_img = mask.reshape(ny, nx)
+
+	# --- Step 2: Distance transform ---
+	dist_img = distance_transform_edt(mask_img) * step  # convert to world distance
+
+	# --- Step 3: Compute sampling weights ---
+	weights = 1.0 / (dist_img + 1e-4)**2        # inverse-square falloff
+
+	weights[mask_img == 0] = 0  # zero outside polygon
+	weights /= weights.sum()
+
+	# --- Step 4: Sample indices according to weights ---
+	flat_idx = np.random.choice(weights.size, size=n_samples, p=weights.ravel())
+	iy, ix = np.unravel_index(flat_idx, weights.shape)
+	xs_samp, ys_samp = xs[ix], ys[iy]
+
+	return np.column_stack((xs_samp, ys_samp))
 
 def roundN(num,n):
 	return round(num/n)*n
@@ -1041,55 +1188,21 @@ if __name__ == "__main__":
 	OUTDIR = Path(__file__).resolve().parent
 	
 	plot_island_size = 3
-	layer_thickness = 0.1*SCALE
-	hatch_space = 0.1*SCALE
-	fname = "ge_bracket_large_1_1"
+	layer_thickness = 1e-4
+	hatch_space = 1e-4
+	fname = "ge_bracket_sandy_opt_1_1"
 	q2_path = OUTDIR / (fname+"_layer.scode")
 	island_path = OUTDIR / (fname+".scode")
+	geomSlices, layers, zs, [xmin,ymin,zmin,xmax,ymax,zmax] = gen_island_slices(fname,layer_thickness)
 	
-	base_path = _base_path()
-	zone_parts = build_zone_parts(base_path)
-
-	models, zone_bids, contour_bid = build_models()
-	zone_priority = ["interface", "high_sensi", "med_sensi", "boundary", "low_sensi", "base"]
-
-
-	original_stl = base_path / "ge_bracket_original.stl"
-	solidPart = pyslm.Part("ge_bracket")
-	solidPart.setGeometry(str(original_stl))
-	solidPart.scaleFactor = SCALE
-	solidPart.dropToPlatform()
-	
-
-	zone_ply_paths = {
-		"high_sensi": base_path / "high_sensi_zone.ply",
-		"med_sensi": base_path / "med_sensi_zone.ply",
-		"low_sensi": base_path / "low_sensi_zone.ply",
-		"base": base_path / "base_zone.ply",
-		"boundary": base_path / "boundary_zone.ply",
-		"interface": base_path / "interface_zone.ply",
-	}
-
-	[xmin,ymin,zmin,xmax,ymax,zmax] = solidPart.boundingBox
-	print(xmin,ymin,zmin,xmax,ymax,zmax)
-	zone_priority = ["interface", "high_sensi", "med_sensi", "boundary", "low_sensi", "base"]
-	
+	models = build_minimal_models()
 	island_dict = {}
 	n_island = 0
 	all_islands = []
-	for z in np.arange(zmin, zmax, layer_thickness):
-		geomSlice = solidPart.getVectorSlice(z+1e-5, simplificationFactor=0.1)
-		layer = myHatcher.hatch(geomSlice)
-		zone_polys = build_zone_polygons(zone_parts, float(z))
-		classify_layer_geometry(
-			layer,
-			zone_polys,
-			zone_bids,
-			contour_bid=contour_bid,
-			default_zone="base",
-			priority=zone_priority,
-		)
-		assign_model(layer, models)
+	#print(zs)
+	for geoslice, layer, z in zip(geomSlices,layers,zs):
+		#print("write island scode:",z)
+		assign_model(layer)
 		islands = get_island_geometries(layer)
 		for islandId,island in enumerate(islands):
 			if round(z/layer_thickness) not in island_dict:
@@ -1105,13 +1218,14 @@ if __name__ == "__main__":
 					island_dict[round(z/layer_thickness)]["pts"].append({"coord":[x_center,y_center,z],"island":island,"id":islandId}) 
 					all_islands.append(islandId+n_island)
 		n_island += write_layer_island_info_scode(layer, models, z, str(island_path), island_index_base=n_island, re = False)
-		print("write island scode:",n_island)
-	print(island_dict.keys())
+	
 	#print("islands done")
 	head,points,normals,vs1,vs2,vs3 = BinarySTL(fname+'.STL')
 	#print(points)
 	points = np.vstack([vs1, vs2, vs3])
 	faces = np.arange(len(points)).reshape(-1, 3)
+	[xmin,xmax,ymin,ymax,zmin,zmax] = BoundingBox(points)
+	#print(xmin,xmax,ymin,ymax,zmin,zmax)
 	length = xmax - xmin
 	width = ymax - ymin
 	island_size = ISLAND_WIDTH
@@ -1142,7 +1256,7 @@ if __name__ == "__main__":
 	
 	# randomly choose some points of interest
 	init_grids1 = generate_grid(xmin,xmax,ymin,ymax,zmin,zmax, 4*island_size, layer_thickness)
-	init_grids2 = generate_grid(xmin,xmax,ymin,ymax,zmin,zmax, 4*island_size, 40*layer_thickness)
+	init_grids2 = generate_grid(xmin,xmax,ymin,ymax,zmin,zmax, island_size, 40*layer_thickness)
 	
 	point_of_interest = {}
 	# uniform sampling + adaptive sampling
@@ -1232,9 +1346,9 @@ if __name__ == "__main__":
 	for z, positions in point_of_interest.items():
 		for pos in positions:
 			p = [pos[0],pos[1],z]
-			if z not in trees:
-				trees[z] = cKDTree([item["coord"] for item in island_dict[round(z/layer_thickness)]["pts"]])
-			dist, idx = trees[z].query(p)
+			if round(z/layer_thickness) not in trees:
+				trees[round(z/layer_thickness)] = cKDTree([item["coord"] for item in island_dict[round(z/layer_thickness)]["pts"]])
+			dist, idx = trees[round(z/layer_thickness)].query(p)
 			island_num_in_layer = island_dict[round(z/layer_thickness)]["pts"][idx]["id"]
 			island_num = island_num_in_layer + island_dict[round(z/layer_thickness)]["bid"]
 			if island_num not in all_sim_paths:
@@ -1248,7 +1362,7 @@ if __name__ == "__main__":
 				all_sim_islands += sim_island_list
 				start_i = min(sim_path_list)
 				end_i = max(sim_path_list)
-				print("sim plan:",start_i,end_i,True,n_list)
+				print(start_i,end_i,"true",n_list)
 	# remove duplicated and out of shape ones
 	#print("remove duplicated",len(all_sim_islands),len(all_sim_paths))
 	all_sim_islands = list(set(all_sim_islands))
@@ -1292,15 +1406,15 @@ if __name__ == "__main__":
 			if len(plot_x)<N_block and idx<len(all_islands)-1:
 				plot_x.append(island_idx)
 			else:
-				print("sim plan:",block_island_begin,island_idx,False,[])
+				print(block_island_begin,island_idx,"false",[])
 				block_island_begin = -1
 				plot_x = [island_idx]
 				block_idx += 1
 		elif len(plot_x) != 0:
 			if block_island_begin>=0:
-				print("sim plan:",block_island_begin,block_island_current,False,[])
+				print(block_island_begin,block_island_current,"false",[])
 				block_island_begin = -1
 			if island_idx in all_sim_islands:
-				print("sim plan:",island_idx,island_idx,False,[])
+				print(island_idx,island_idx,"false",[])
 			plot_x = []
 			block_idx += 1

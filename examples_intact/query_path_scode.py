@@ -23,7 +23,7 @@ from pyslm.analysis.export_scode import (
 
 SCALE = 0.001
 SCAN_CONTOUR_FIRST = False  # available if needed by your IslandHatcher setup
-ISLAND_WIDTH = 0.002
+ISLAND_WIDTH = 0.006
 NEIGHBOR_RADIUS_R = 0.8 * ISLAND_WIDTH
 OWNER_SEQUENCE_INDEX_1BASED = 23  # similar selection strategy to test_spatial_lookup (choose a specific island)
 
@@ -54,7 +54,7 @@ def gen_island_slices(filename,layer_thickness):
 	solidPart = pyslm.Part(filename)
 	solidPart.setGeometry(filename+'.STL')
 	
-	solidPart.dropToPlatform()
+	#solidPart.dropToPlatform()
 	solidPart.origin[0] = 0.0
 	solidPart.origin[1] = 0.0
 	solidPart.scaleFactor = SCALE
@@ -86,8 +86,8 @@ def assign_model(layer):
 	# Minimal BuildStyle/Model for timing/exports
 	bstyle = pyslm.geometry.BuildStyle()
 	bstyle.bid = 1
-	bstyle.laserSpeed = 1.9  # [mm/s] continuous mode
-	bstyle.laserPower = 160.0  # [W]
+	bstyle.laserSpeed = 1 # [mm/s] continuous mode
+	bstyle.laserPower = 320.0  # [W]
 	bstyle.jumpSpeed = 5000.0  # [mm/s]
 
 	model = pyslm.geometry.Model()
@@ -99,9 +99,9 @@ def assign_model(layer):
 
 def main():
 	OUTDIR = Path(__file__).resolve().parent
-	
+		
 	layer_thickness = 1e-4
-	fname = "ge_bracket_large_1_1"
+	fname = "ge_bracket_sandy_opt_1_1"
 	geomSlices, layers, zs = gen_island_slices(fname,layer_thickness)
 	island_dict = {}
 	n_island = 0
@@ -113,7 +113,7 @@ def main():
 		n_island += len(islands)
 		#print("generating slices:",z,round(z/layer_thickness),island_dict.keys(),n_island)
 	print(island_dict.keys())
-	query_points = np.loadtxt("pts_r.txt")
+	query_points = np.loadtxt("pts2.txt")
 	for p in query_points:
 		idx = np.argmin(np.abs(zs - p[2]))
 		if np.abs(zs[idx] - p[2])>layer_thickness:
@@ -122,7 +122,7 @@ def main():
 		n_z = round(Z_TARGET/layer_thickness)
 		if n_z not in island_dict:
 			continue
-		q1_path = OUTDIR / "gcodes" / "localmodel" / str(fname+"_local_query_"+str(round(p[0],6))+"_"+str(round(p[1],6))+"_"+str(round(Z_TARGET,6))+"_fine_laser_path.scode")
+		q1_path = OUTDIR / "gcodes" / "ge_opt_ref_300" / str(fname+"_local_query_"+str(round(p[0],6))+"_"+str(round(p[1],6))+"_"+str(round(Z_TARGET,6))+"_fine_laser_path.scode")
 		layers = []
 		models = []
 		param_zs = []

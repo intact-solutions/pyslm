@@ -114,13 +114,12 @@ def build_models():
 	contour_bid = 10
 
 	zone_params = {
-		"high_sensi": {"power": 160.0, "speed": 2.5},
-		"med_sensi": {"power": 160.0, "speed": 1.75},
-		"low_sensi": {"power": 160.0, "speed": 2.5},
-		"base": {"power": 160.0, "speed": 2.5},
-		"boundary": {"power": 160.0, "speed": 2.5},
-		"interface": {"power": 160.0, "speed": 2.5},
-		"contour": {"power": 160.0, "speed": 2.5},
+		"high_sensi": {"power": 160, "speed": 2},
+		"med_sensi": {"power": 160, "speed": 2},
+		"low_sensi": {"power": 160, "speed": 2},
+		"base": {"power": 160, "speed": 2},
+		"boundary": {"power": 160, "speed": 2},
+		"interface": {"power": 160, "speed": 2},
 	}
 
 	model = pyslm.geometry.Model()
@@ -136,8 +135,6 @@ def build_models():
 
 	bs_contour = pyslm.geometry.BuildStyle()
 	bs_contour.bid = int(contour_bid)
-	bs_contour.laserPower = float(zone_params["contour"]["power"])
-	bs_contour.laserSpeed = float(zone_params["contour"]["speed"])
 	bs_contour.jumpSpeed = 5000.0
 	model.buildStyles.append(bs_contour)
 
@@ -267,7 +264,7 @@ def main():
 		n_z = round(Z_TARGET/layer_thickness)
 		if n_z not in island_dict:
 			continue
-		q1_path = OUTDIR / "gcodes" / str(fname+"_local_query_"+str(round(p[0],6))+"_"+str(round(p[1],6))+"_"+str(round(Z_TARGET/1000,6))+"_fine_laser_path.scode")
+		q1_path = OUTDIR / "gcodes" / "160_2" / str(fname+"_local_query_"+str(round(p[0],6))+"_"+str(round(p[1],6))+"_"+str(round(Z_TARGET/1000,6))+"_fine_laser_path.scode")
 		layers = []
 		param_zs = []
 		bids = []

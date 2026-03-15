@@ -29,6 +29,8 @@ var/
 *.png
 *.txt
 *.scode
+*.Identifier
+
 
 # Pycharm Project Information
 .idea/
