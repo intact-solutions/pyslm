@@ -48,7 +48,7 @@ from pyslm.analysis.island_utils import (
 Z_TARGET = 14.99
 SCALE = 0.001
 SCAN_CONTOUR_FIRST = False  # available if needed by your IslandHatcher setup
-ISLAND_WIDTH = 0.002
+ISLAND_WIDTH = 2*SCALE
 NEIGHBOR_RADIUS_R = 0.8 * ISLAND_WIDTH
 OWNER_SEQUENCE_INDEX_1BASED = 23  # similar selection strategy to test_spatial_lookup (choose a specific island)
 
@@ -103,8 +103,8 @@ def gen_island_slices(filename,layer_thickness):
 def build_minimal_models():
 	bstyle = pyslm.geometry.BuildStyle()
 	bstyle.bid = 1
-	bstyle.laserSpeed = 0.1
-	bstyle.laserPower = 160
+	bstyle.laserSpeed = 0.05
+	bstyle.laserPower = 105
 	bstyle.jumpSpeed = 5000.0
 
 	model = pyslm.geometry.Model()
@@ -1190,7 +1190,7 @@ if __name__ == "__main__":
 	plot_island_size = 3
 	layer_thickness = 1e-4
 	hatch_space = 1e-4
-	fname = "ge_bracket_large_1_1"
+	fname = "ge_bracket_large_1_1_block"
 	q2_path = OUTDIR / (fname+"_layer.scode")
 	island_path = OUTDIR / (fname+".scode")
 	geomSlices, layers, zs = gen_island_slices(fname,layer_thickness)

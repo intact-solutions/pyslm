@@ -11,7 +11,7 @@ based on geometric zones (e.g., bulk, overhang, boundary regions).
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 try:
     from shapely.geometry import MultiPolygon, Point, Polygon
@@ -138,6 +138,30 @@ def find_zone_for_point(x: float, y: float,
                 pass
     
     return default
+
+
+def find_zone_at_point(point: Union[Tuple[float, float], Sequence[float], Any],
+                       zone_polys: Dict[str, MultiPolygon],
+                       priority: Optional[List[str]] = None,
+                       default: str = 'bulk') -> str:
+    if Point is None:
+        raise ImportError("shapely is required for zone utilities")
+
+    if hasattr(point, "x") and hasattr(point, "y"):
+        x, y = float(point.x), float(point.y)
+    else:
+        x, y = float(point[0]), float(point[1])
+
+    if priority:
+        return find_zone_for_point_with_priority(x, y, zone_polys, priority, default)
+    return find_zone_for_point(x, y, zone_polys, default)
+
+
+def find_zones_for_points(points: Sequence[Union[Tuple[float, float], Sequence[float], Any]],
+                          zone_polys: Dict[str, MultiPolygon],
+                          priority: Optional[List[str]] = None,
+                          default: str = 'bulk') -> List[str]:
+    return [find_zone_at_point(p, zone_polys, priority=priority, default=default) for p in points]
 
 
 def find_zone_for_point_with_priority(x: float, y: float,
