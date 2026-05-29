@@ -103,8 +103,8 @@ def gen_island_slices(filename,layer_thickness):
 def build_minimal_models():
 	bstyle = pyslm.geometry.BuildStyle()
 	bstyle.bid = 1
-	bstyle.laserSpeed = 0.0167
-	bstyle.laserPower = 320
+	bstyle.laserSpeed = 0.1
+	bstyle.laserPower = 230
 	bstyle.jumpSpeed = 5000.0
 
 	model = pyslm.geometry.Model()
@@ -1199,7 +1199,7 @@ if __name__ == "__main__":
 	plot_island_size = 3
 	layer_thickness = 1e-4
 	hatch_space = 1e-4
-	fname = "ge_bracket_sandy_opt_1_1"
+	fname = "Fan"
 	q2_path = OUTDIR / (fname+"_layer.scode")
 	island_path = OUTDIR / (fname+".scode")
 	geomSlices, layers, zs, [xmin,ymin,zmin,xmax,ymax,zmax] = gen_island_slices(fname,layer_thickness)
@@ -1219,13 +1219,13 @@ if __name__ == "__main__":
 				x_center = island.boundaryPoly.centroid.x
 				y_center = island.boundaryPoly.centroid.y
 				island_dict[round(z/layer_thickness)] = {"layer":index,"bid":n_island,"pts":[{"coord":[x_center,y_center,z],"island":island,"id":islandId}]}
-				all_islands.append([islandId+n_island,z])
+				all_islands.append(islandId+n_island)
 			else:
 				x_center = island.boundaryPoly.centroid.x
 				y_center = island.boundaryPoly.centroid.y
 				if (islandId not in [i["id"] for i in island_dict[round(z/layer_thickness)]["pts"]]):
 					island_dict[round(z/layer_thickness)]["pts"].append({"coord":[x_center,y_center,z],"island":island,"id":islandId}) 
-					all_islands.append([islandId+n_island,z])
+					all_islands.append(islandId+n_island)
 		n_island += write_layer_island_info_scode(layer, models, z, str(island_path), n_island, False, ISLAND_PV)
 	
 	#print("islands done")
@@ -1294,12 +1294,12 @@ if __name__ == "__main__":
 		dists = query_distances(coords, dist_img, mask_img, grid_params)
 		for coord, dist in zip(coords, dists):
 			p = [coord[0],coord[1],z]
-			if dist<0 or dist>ISLAND_WIDTH*1:
+			if dist<0 or dist>ISLAND_WIDTH*4:
 				continue
 			[i,j,l] = position_to_coord(p,island_size,layer_thickness,origin)
-			#n = round(dist/ISLAND_WIDTH)
-			#if not (n == 0 or (i%n == 0 and j%n ==0)):
-			#	continue
+			n = round(dist/ISLAND_WIDTH)
+			if not (n == 0 or (i%n == 0 and j%n ==0)):
+				continue
 			if (z not in point_of_interest):
 				point_of_interest[z] = [coord]
 			else:
@@ -1329,7 +1329,7 @@ if __name__ == "__main__":
 		plt.title("Uniform Sampling")
 		plt.savefig('./pts/uniform sampling_'+str(round(z,6))+'_.png')
 		plt.clf()
-	''''''
+	
 	coords = []		
 	for z, positions in point_of_interest.items():
 		for pos in positions:
@@ -1403,40 +1403,27 @@ if __name__ == "__main__":
 	last_block_island = -1
 	plot_x = []
 	sorted(all_islands)
-	prev_z = all_islands[0][1]
 	#print(all_islands)
 	block_island_begin = -1
 	block_island_current = -1
-	
-	layermode = False
-	if layermode:
-		block_island_begin = all_islands[0][0]
-		for idx in range(len(all_islands)):
-			island_idx = all_islands[idx][0]
+	for idx in range(len(all_islands)):
+		island_idx = all_islands[idx]
+		if island_idx not in non_block_islands:
 			block_island_current = island_idx
-			if all_islands[idx][1]!=prev_z:
-				prev_z = all_islands[idx][1]
-				print(block_island_begin,block_island_current,"false",[])
-				block_island_begin = block_island_current + 1
-	else:
-		for idx in range(len(all_islands)):
-			island_idx = all_islands[idx][0]
-			if island_idx not in non_block_islands:
-				block_island_current = island_idx
-				if block_island_begin<0:
-					block_island_begin = island_idx
-				if len(plot_x)<N_block and idx<len(all_islands)-1:
-					plot_x.append(island_idx)
-				else:
-					print(block_island_begin,island_idx,"false",[])
-					block_island_begin = -1
-					plot_x = [island_idx]
-					block_idx += 1
-			elif len(plot_x) != 0:
-				if block_island_begin>=0:
-					print(block_island_begin,block_island_current,"false",[])
-					block_island_begin = -1
-				if island_idx in all_sim_islands:
-					print(island_idx,island_idx,"false",[])
-				plot_x = []
+			if block_island_begin<0:
+				block_island_begin = island_idx
+			if len(plot_x)<N_block and idx<len(all_islands)-1:
+				plot_x.append(island_idx)
+			else:
+				print(block_island_begin,island_idx,"false",[])
+				block_island_begin = -1
+				plot_x = [island_idx]
 				block_idx += 1
+		elif len(plot_x) != 0:
+			if block_island_begin>=0:
+				print(block_island_begin,block_island_current,"false",[])
+				block_island_begin = -1
+			if island_idx in all_sim_islands:
+				print(island_idx,island_idx,"false",[])
+			plot_x = []
+			block_idx += 1

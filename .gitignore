@@ -30,6 +30,9 @@ var/
 *.txt
 *.scode
 *.Identifier
+*.zip
+*.STL
+*.stl
 
 
 # Pycharm Project Information

@@ -86,8 +86,8 @@ def assign_model(layer):
 	# Minimal BuildStyle/Model for timing/exports
 	bstyle = pyslm.geometry.BuildStyle()
 	bstyle.bid = 1
-	bstyle.laserSpeed = 1 # [mm/s] continuous mode
-	bstyle.laserPower = 80.0  # [W]
+	bstyle.laserSpeed = 1.0 # [mm/s] continuous mode
+	bstyle.laserPower = 320.0  # [W]
 	bstyle.jumpSpeed = 5000.0  # [mm/s]
 
 	model = pyslm.geometry.Model()
@@ -101,11 +101,11 @@ def main():
 	OUTDIR = Path(__file__).resolve().parent
 		
 	layer_thickness = 1e-4
-	fname = "ge_bracket_sandy_opt_1_1"
+	fname = "ge_bracket_large_1_1"
 	PV_PARAMERIZATION = False
 	ISLAND_PV = []
 	if PV_PARAMERIZATION:
-		data = np.loadtxt("/home/xin/Block-Island-Simulation/gcodes/ge_bracket_sandy_opt_1_1_320_1_ref_6mm_param_opt_entire_part_k3.scode")
+		data = np.loadtxt("/home/xin/Block-Island-Simulation/gcodes/ge_bracket_sandy_opt_1_1_320_1_pv_param.scode")
 		island_idx_array = data[:, -1]
 		island_powers = data[:, -4]
 		island_speeds = data[:, -3]
@@ -122,7 +122,7 @@ def main():
 		n_island += len(islands)
 		#print("generating slices:",z,round(z/layer_thickness),island_dict.keys(),n_island)
 	print(island_dict.keys())
-	query_points = np.loadtxt("pts_opt.txt")
+	query_points = np.loadtxt("pts_rom.txt")
 	for p in query_points:
 		idx = np.argmin(np.abs(zs - p[2]))
 		if np.abs(zs[idx] - p[2])>layer_thickness:
@@ -131,7 +131,7 @@ def main():
 		n_z = round(Z_TARGET/layer_thickness)
 		if n_z not in island_dict:
 			continue
-		q1_path = OUTDIR / "gcodes" / "ge_opt_opt_80_1_opt_al" / str(fname+"_local_query_"+str(round(p[0],6))+"_"+str(round(p[1],6))+"_"+str(round(Z_TARGET,6))+"_fine_laser_path.scode")
+		q1_path = OUTDIR / "gcodes" / "ge_rom_320_1_block" / str(fname+"_local_query_"+str(round(p[0],6))+"_"+str(round(p[1],6))+"_"+str(round(Z_TARGET,6))+"_fine_laser_path.scode")
 		layers = []
 		models = []
 		param_zs = []

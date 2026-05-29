@@ -119,12 +119,12 @@ def build_models():
 	"interface": {"power": 159.3637716533559, "speed": 2.0880269537424376/20},
 	'''
 	zone_params = {
-		"high_sensi": {"power": 160, "speed": 2/20},
-		"med_sensi": {"power": 160, "speed": 2/20},
-		"low_sensi": {"power": 160, "speed": 2/20},
-		"base": {"power": 160, "speed": 2/20},
-		"boundary": {"power": 160, "speed": 2/20},
-		"interface": {"power": 160, "speed": 2/20},
+		"high_sensi": {"power": 230, "speed": 1/20},
+		"med_sensi": {"power": 230, "speed": 1/20},
+		"low_sensi": {"power": 230, "speed": 1/20},
+		"base": {"power": 230, "speed": 1/20},
+		"boundary": {"power": 230, "speed": 1/20},
+		"interface": {"power": 230, "speed": 1/20},
 	}
         
 	model = pyslm.geometry.Model()
