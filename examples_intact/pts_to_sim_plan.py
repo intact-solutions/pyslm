@@ -41,7 +41,8 @@ from pyslm.analysis.island_utils import (
 	get_island_geometries,
 	compute_layer_geometry_times,
 )
-
+import os
+os.makedirs('./pts', exist_ok=True)
 
 # ----------------------------
 # Config
