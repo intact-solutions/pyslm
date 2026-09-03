@@ -1071,7 +1071,7 @@ if __name__ == "__main__":
 	}
 
 	[xmin,ymin,zmin,xmax,ymax,zmax] = solidPart.boundingBox
-	print(xmin,ymin,zmin,xmax,ymax,zmax)
+	#print(xmin,ymin,zmin,xmax,ymax,zmax)
 	zone_priority = ["interface", "high_sensi", "med_sensi", "boundary", "low_sensi", "base"]
 	
 	island_dict = {}
@@ -1105,8 +1105,8 @@ if __name__ == "__main__":
 					island_dict[round(z/layer_thickness)]["pts"].append({"coord":[x_center,y_center,z],"island":island,"id":islandId}) 
 					all_islands.append(islandId+n_island)
 		n_island += write_layer_island_info_scode(layer, models, z, str(island_path), island_index_base=n_island, re = False)
-		print("write island scode:",n_island)
-	print(island_dict.keys())
+		#print("write island scode:",n_island)
+	#print(island_dict.keys())
 	#print("islands done")
 	head,points,normals,vs1,vs2,vs3 = BinarySTL(fname+'.STL')
 	#print(points)
