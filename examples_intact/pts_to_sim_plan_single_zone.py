@@ -46,9 +46,9 @@ from pyslm.analysis.island_utils import (
 # Config
 # ----------------------------
 Z_TARGET = 14.99
-SCALE = 0.001
+SCALE = 0.002
 SCAN_CONTOUR_FIRST = False  # available if needed by your IslandHatcher setup
-ISLAND_WIDTH = 0.002
+ISLAND_WIDTH = 0.001
 NEIGHBOR_RADIUS_R = 0.8 * ISLAND_WIDTH
 OWNER_SEQUENCE_INDEX_1BASED = 23  # similar selection strategy to test_spatial_lookup (choose a specific island)
 
@@ -83,7 +83,7 @@ def gen_island_slices(filename,layer_thickness):
 	solidPart.origin[0] = 0.0
 	solidPart.origin[1] = 0.0
 	solidPart.scaleFactor = SCALE
-	solidPart.rotation = [0, 0.0, np.pi]
+	solidPart.rotation = [0, 0.0, 0]
 	
 
 	[xmin,ymin,zmin,xmax,ymax,zmax] = solidPart.boundingBox
@@ -103,8 +103,8 @@ def gen_island_slices(filename,layer_thickness):
 def build_minimal_models():
 	bstyle = pyslm.geometry.BuildStyle()
 	bstyle.bid = 1
-	bstyle.laserSpeed = 0.0167
-	bstyle.laserPower = 320
+	bstyle.laserSpeed = 1
+	bstyle.laserPower = 285
 	bstyle.jumpSpeed = 5000.0
 
 	model = pyslm.geometry.Model()
@@ -1197,9 +1197,9 @@ if __name__ == "__main__":
 		ISLAND_PV = [island_powers,island_speeds]
 
 	plot_island_size = 3
-	layer_thickness = 1e-4
+	layer_thickness = 2e-3
 	hatch_space = 1e-4
-	fname = "ge_bracket_sandy_opt_1_1"
+	fname = "scp"
 	q2_path = OUTDIR / (fname+"_layer.scode")
 	island_path = OUTDIR / (fname+".scode")
 	geomSlices, layers, zs, [xmin,ymin,zmin,xmax,ymax,zmax] = gen_island_slices(fname,layer_thickness)
@@ -1210,9 +1210,9 @@ if __name__ == "__main__":
 	all_islands = []
 	#print(zs)
 	for geoslice, layer, z in zip(geomSlices,layers,zs):
-		#print("write island scode:",z)
 		assign_model(layer)
 		islands = get_island_geometries(layer)
+		print("write island scode:",z,len(islands))
 		for islandId,island in enumerate(islands):
 			if round(z/layer_thickness) not in island_dict:
 				index = IslandIndex(layer, neighbor_radius=NEIGHBOR_RADIUS_R)
@@ -1227,7 +1227,7 @@ if __name__ == "__main__":
 					island_dict[round(z/layer_thickness)]["pts"].append({"coord":[x_center,y_center,z],"island":island,"id":islandId}) 
 					all_islands.append([islandId+n_island,z])
 		n_island += write_layer_island_info_scode(layer, models, z, str(island_path), n_island, False, ISLAND_PV)
-	
+	print(island_dict.keys())
 	#print("islands done")
 	head,points,normals,vs1,vs2,vs3 = BinarySTL(fname+'.STL')
 	#print(points)
@@ -1265,7 +1265,7 @@ if __name__ == "__main__":
 	
 	# randomly choose some points of interest
 	init_grids1 = generate_grid(xmin,xmax,ymin,ymax,zmin,zmax, 4*island_size, layer_thickness)
-	init_grids2 = generate_grid(xmin,xmax,ymin,ymax,zmin,zmax, island_size, 40*layer_thickness)
+	init_grids2 = generate_grid(xmin,xmax,ymin,ymax,zmin,zmax, 4*island_size, 40*layer_thickness)
 	
 	point_of_interest = {}
 	# uniform sampling + adaptive sampling
@@ -1284,7 +1284,7 @@ if __name__ == "__main__":
 					point_of_interest[z] = [coord]
 				else:
 					point_of_interest[z].append(coord)
-	
+	'''
 	for z, coords in init_grids2.items():
 		polygons = slice_mesh_to_polygons(fname+'.STL', z, xmin, ymin)
 		# 1️⃣ Build the distance field ONCE for this slice
@@ -1329,7 +1329,7 @@ if __name__ == "__main__":
 		plt.title("Uniform Sampling")
 		plt.savefig('./pts/uniform sampling_'+str(round(z,6))+'_.png')
 		plt.clf()
-	''''''
+	'''
 	coords = []		
 	for z, positions in point_of_interest.items():
 		for pos in positions:
@@ -1419,24 +1419,46 @@ if __name__ == "__main__":
 				print(block_island_begin,block_island_current,"false",[])
 				block_island_begin = block_island_current + 1
 	else:
+		# Keep track of the Z-height to know when a layer changes
+		prev_z = all_islands[0][1] if all_islands else -1
+		
 		for idx in range(len(all_islands)):
 			island_idx = all_islands[idx][0]
+			current_z = all_islands[idx][1]
+			
+			# -----------------------------------------------------------------
+			# NEW: Force a break and print if the layer (Z-height) changes
+			# -----------------------------------------------------------------
+			if current_z != prev_z and len(plot_x) != 0:
+				if block_island_begin >= 0:
+					print(block_island_begin, block_island_current, "false", [])
+					block_island_begin = -1
+				plot_x = []
+				block_idx += 1
+				
+			prev_z = current_z
+			# -----------------------------------------------------------------
+			
+			# Your original chunking logic:
 			if island_idx not in non_block_islands:
 				block_island_current = island_idx
-				if block_island_begin<0:
+				if block_island_begin < 0:
 					block_island_begin = island_idx
-				if len(plot_x)<N_block and idx<len(all_islands)-1:
+					
+				if len(plot_x) < N_block and idx < len(all_islands) - 1:
 					plot_x.append(island_idx)
 				else:
-					print(block_island_begin,island_idx,"false",[])
+					print(block_island_begin, island_idx, "false", [])
 					block_island_begin = -1
 					plot_x = [island_idx]
 					block_idx += 1
 			elif len(plot_x) != 0:
-				if block_island_begin>=0:
-					print(block_island_begin,block_island_current,"false",[])
+				if block_island_begin >= 0:
+					print(block_island_begin, block_island_current, "false", [])
 					block_island_begin = -1
+				
 				if island_idx in all_sim_islands:
-					print(island_idx,island_idx,"false",[])
+					print(island_idx, island_idx, "false", [])
+				
 				plot_x = []
 				block_idx += 1
