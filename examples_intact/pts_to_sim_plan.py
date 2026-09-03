@@ -48,7 +48,7 @@ os.makedirs('./pts', exist_ok=True)
 # Config
 # ----------------------------
 Z_TARGET = 14.99
-SCALE = 1
+SCALE = 0.001
 SCAN_CONTOUR_FIRST = False  # available if needed by your IslandHatcher setup
 ISLAND_WIDTH = 2
 NEIGHBOR_RADIUS_R = 0.8 * ISLAND_WIDTH
@@ -1249,7 +1249,7 @@ if __name__ == "__main__":
 				all_sim_islands += sim_island_list
 				start_i = min(sim_path_list)
 				end_i = max(sim_path_list)
-				print("sim plan:",start_i,end_i,True,n_list)
+				print(start_i,end_i,"true",n_list)
 	# remove duplicated and out of shape ones
 	#print("remove duplicated",len(all_sim_islands),len(all_sim_paths))
 	all_sim_islands = list(set(all_sim_islands))
@@ -1293,15 +1293,15 @@ if __name__ == "__main__":
 			if len(plot_x)<N_block and idx<len(all_islands)-1:
 				plot_x.append(island_idx)
 			else:
-				print("sim plan:",block_island_begin,island_idx,False,[])
+				print(block_island_begin,island_idx,"false",[])
 				block_island_begin = -1
 				plot_x = [island_idx]
 				block_idx += 1
 		elif len(plot_x) != 0:
 			if block_island_begin>=0:
-				print("sim plan:",block_island_begin,block_island_current,False,[])
+				print(block_island_begin,block_island_current,"false",[])
 				block_island_begin = -1
 			if island_idx in all_sim_islands:
-				print("sim plan:",island_idx,island_idx,False,[])
+				print(island_idx,island_idx,"false",[])
 			plot_x = []
 			block_idx += 1
