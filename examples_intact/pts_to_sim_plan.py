@@ -48,7 +48,7 @@ os.makedirs('./pts', exist_ok=True)
 # Config
 # ----------------------------
 Z_TARGET = 14.99
-SCALE = 0.001
+SCALE = 1
 SCAN_CONTOUR_FIRST = False  # available if needed by your IslandHatcher setup
 ISLAND_WIDTH = 2
 NEIGHBOR_RADIUS_R = 0.8 * ISLAND_WIDTH
