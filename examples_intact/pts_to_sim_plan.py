@@ -1208,11 +1208,18 @@ if __name__ == "__main__":
 		plt.savefig('./pts/uniform sampling_'+str(round(z,6))+'_.png')
 		plt.clf()
 	
-	coords = []		
-	for z, positions in point_of_interest.items():
-		for pos in positions:
-			print(pos[0]/(1000*SCALE),pos[1]/(1000*SCALE),z/(1000*SCALE))
-			coords.append([pos[0],pos[1],z])
+	coords = []
+
+	with open("pts.txt", "w") as f:
+		for z, positions in point_of_interest.items():
+			for pos in positions:
+				x = pos[0] / (1000 * SCALE)
+				y = pos[1] / (1000 * SCALE)
+				zz = z / (1000 * SCALE)
+
+				f.write(f"{x} {y} {zz}\n")
+
+				coords.append([pos[0], pos[1], z])
 	
 	# plot
 	fig = plt.figure()

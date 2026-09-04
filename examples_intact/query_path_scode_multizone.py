@@ -23,7 +23,7 @@ from pyslm.analysis.export_scode import (
 
 SCALE = 1
 SCAN_CONTOUR_FIRST = False  # available if needed by your IslandHatcher setup
-ISLAND_WIDTH = 2*SCALE
+ISLAND_WIDTH = 6
 NEIGHBOR_RADIUS_R = 0.8 * ISLAND_WIDTH
 OWNER_SEQUENCE_INDEX_1BASED = 23  # similar selection strategy to test_spatial_lookup (choose a specific island)
 
@@ -114,21 +114,12 @@ def build_models():
 	contour_bid = 10
 
 	zone_params = {
-<<<<<<< HEAD
 		"high_sensi": {"power": 160, "speed": 2},
 		"med_sensi": {"power": 160, "speed": 2},
 		"low_sensi": {"power": 160, "speed": 2},
 		"base": {"power": 160, "speed": 2},
 		"boundary": {"power": 160, "speed": 2},
 		"interface": {"power": 160, "speed": 2},
-=======
-		"high_sensi": {"power": 150.0, "speed": 0.1},
-		"med_sensi": {"power": 160.0, "speed": 0.095},
-		"low_sensi": {"power": 170.0, "speed": 0.09},
-		"base": {"power": 180.0, "speed": 0.085},
-		"boundary": {"power": 190.0, "speed": 0.08},
-		"interface": {"power": 200.0, "speed": 0.075},
->>>>>>> eff2556b6db4021453d3b3d4b55727eabfc2b7b1
 	}
 
 	model = pyslm.geometry.Model()
